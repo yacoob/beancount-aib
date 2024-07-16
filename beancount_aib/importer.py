@@ -121,6 +121,7 @@ class Importer(ImporterProtocol):
         last_balance: Optional[dict[str, Any]] = None
         for row in self.read(file):
             # grab values from the csv row
+            tags = set()
             meta = new_metadata(file.name, row['__lineno'])
             txdate = row['Posted Transactions Date'].strip()
             txdate = datetime.datetime.strptime(txdate, '%d/%m/%Y').date()
@@ -140,7 +141,14 @@ class Importer(ImporterProtocol):
             else:
                 amount = '-' + row['Debit Amount']
             amount = amount.replace(',', '').strip()
-            balance = row.get('Balance')
+            # handle foreign currency information if available
+            # NOTE: Fields involved are filled in as expected only in credit card CSVs.
+            # For current accounts, the fields are present, but the data is invalid; and
+            # the currency and foreign amount are present in the description.
+            if (c := row.get('Local Currency', self.currency)) != self.currency:
+                tags.add(c.lower())
+                meta['foreign-amount'] = row['Local Currency Amount']
+
             # create a new Transaction, with a single Posting for the account we're processing
             txn = Tx(
                 date=txdate,
@@ -148,6 +156,7 @@ class Importer(ImporterProtocol):
                 narration=self.default_narration,
                 flag=self.txflag,
                 meta=meta,
+                tags=tags,
                 postings=[
                     Post(self.importer_account, amount=amount, currency=self.currency),
                 ],
@@ -160,7 +169,7 @@ class Importer(ImporterProtocol):
             )
             entries.append(txn)
             # update last seen balance
-            if balance:
+            if balance := row.get('Balance', None):
                 last_balance = {
                     'date': txdate,
                     'balance': balance.strip(),
