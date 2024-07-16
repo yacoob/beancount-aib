@@ -10,9 +10,6 @@ AIB_EXTRACTORS: Extractors = {
     # IDs that change for every instance of similar transactions
     'id': (
         E(r' *(IE\d+)'),
-        E(r' *(CT0[A-Z\d]+)'),
-        E(r' *(GTS[A-Z\d]+)'),
-        E(r'MYTAXI(.COM)?[ *]?([A-Z\d]+)', replacement='MyTaxi', value=r'\g<2>'),
         E(r'RYANAIR +(.+)', replacement='Ryanair', value=r'\g<1>'),
         E(r'FREENOW\*(?=.*\d)([A-Z\d-]+)', replacement='FreeNow', value=r'\g<1>'),
     ),
@@ -21,7 +18,6 @@ AIB_EXTRACTORS: Extractors = {
         E(r' [\d.]+ ([A-Z]{3})@ [\d.]+'),
         # transaction flavour
         # https://aib.ie/our-products/current-accounts/keeping-track-of-your-transactions
-        E(r'(?i)^op/(.+)', value='direct-debit', replacement=r'\g<1>'),
         E(r'(?i)^(vd[apc]|op/|atm|pos|mobi|inet|d/d|atmldg|ms[ap]|)[- ]',
           translation={
             'atm': 'atm-aib',
@@ -55,10 +51,6 @@ AIB_EXTRACTORS: Extractors = {
         # behold the museum of Amazon payment strings >_<;
         E(r'(?i)^(www.)?amazon((\.co)?\.[a-z]{2,3})(.*)', replacement=lambda m: r'Amazon' + m.group(2).lower() + m.group(4)),
         E(r'(?i)^amazon prime.*', replacement='Amazon Prime'),
-        E(r'(?i)^amazon(.*)paym.*', replacement=r'Amazon\g<1>Payments'),
-        E(r'(?i)^amazon(.*)(mark|mktpl).*', replacement=r'Amazon\g<1>Marketplace'),
-        E(r'(?i)^amazon(.*)(services|svcs).*', replacement=r'Amazon\g<1>Services'),
-        E(r'(?i)^amazon(.*)reta.*', replacement=r'Amazon\g<1>Retail'),
         E(r'(?i)^amazon [\d-]+', replacement=r'Amazon'),
         E(r'(?i)^(amazon[^*]+)\*.*', replacement=r'\g<1>'),
     ),
