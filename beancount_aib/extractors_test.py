@@ -22,12 +22,19 @@ CLEANER_SCENARIOS = [
 
 @pytest.mark.parametrize('scenario', CLEANER_SCENARIOS)
 class TestAibTxnCleanup(BasicExtractorTest):  # noqa: D101
+    # TODO: reuse the code from beancount_tx_cleanup.cleanup_test.TestCleanerFunctionality.test_cleaning
+    #       or retire this entire class in favour of a completeness check in the regression test.
     def test_payee_mangling(self, scenario):
         """Test different scenarios of payee cleanup.
 
         NOTE: you need a full regression test in addition to CLEANER_SCENARIOS above.
         """
-        tx = Tx(self.date, scenario.input)
+        tx = Tx(
+            self.date,
+            scenario.input_payee,
+            tags=scenario.input_tags,
+            meta=scenario.input_meta,
+        )
         clean_tx = Tx(
             self.date,
             scenario.payee,
