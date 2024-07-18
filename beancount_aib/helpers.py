@@ -5,7 +5,6 @@ NOTE: beancount.core.data types are all NamedTuples, and they don't play well wi
 
 import datetime
 from decimal import Decimal
-from typing import Optional
 
 from beancount.core.data import (
     EMPTY_SET,
@@ -38,7 +37,7 @@ def Bal(
     date: datetime.date,
     *,
     currency: str = DEFAULT_CURRENCY,
-    meta: Optional[dict[str, str]] = None,
+    meta: dict[str, str] | None = None,
 ):
     """Create a Balance directive."""
     return Balance(  # pyright: ignore reportCallIssue
@@ -54,8 +53,8 @@ def Bal(
 def Post(
     account: str,
     *,
-    amount: Optional[str] = None,
-    currency: Optional[str] = DEFAULT_CURRENCY,
+    amount: str | None = None,
+    currency: str | None = DEFAULT_CURRENCY,
 ) -> Posting:
     """Create a Posting object."""
     return Posting(
@@ -70,13 +69,13 @@ def Post(
 
 def Tx(  # noqa: PLR0913
     date: datetime.date,
-    payee: Optional[str] = None,
+    payee: str | None = None,
     *,
-    narration: Optional[str] = None,
-    postings: Optional[list[Posting]] = None,
-    flag: Optional[str] = DEFAULT_FLAG,
-    tags: Optional[set[str]] = None,
-    meta: Optional[dict[str, str]] = None,
+    narration: str | None = None,
+    postings: list[Posting] | None = None,
+    flag: str | None = DEFAULT_FLAG,
+    tags: set[str] | None = None,
+    meta: dict[str, str] | None = None,
 ):
     """Create a Transaction directive."""
     return Transaction(  # pyright: ignore reportCallIssue

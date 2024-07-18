@@ -5,6 +5,7 @@ import re
 from typing import ClassVar
 
 from beancount.core.data import Directive
+
 from beancount_aib.categorizer import PayeeCategorizer
 from beancount_aib.helpers import Post, Tx
 
@@ -55,5 +56,5 @@ class TestPayeeCategorizer:
             'Expenses:Restaurants',   # The Winding Stairs
             self.account,             # Forbidden Planet ("last" posting is the outgoing one)
         ]  # fmt: skip
-        for t, c in zip(processed_txs, expected_categories):
+        for t, c in zip(processed_txs, expected_categories, strict=True):
             assert t.postings[-1].account == c

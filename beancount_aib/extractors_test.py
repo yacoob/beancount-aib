@@ -1,10 +1,11 @@
 """Tests for specific extractors configured for AIB."""
 
 import pytest
-from beancount_aib.extractors import AIB_EXTRACTORS
-from beancount_aib.helpers import Tx
 from beancount_tx_cleanup.cleaner import TxnPayeeCleanup
 from beancount_tx_cleanup.cleaner_test import CS, BasicExtractorTest
+
+from beancount_aib.extractors import AIB_EXTRACTORS
+from beancount_aib.helpers import Tx
 
 # TODO: add more of these once AIB_EXTRACTORS is cleaned of stale rules
 CLEANER_SCENARIOS = [

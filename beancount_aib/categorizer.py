@@ -1,13 +1,13 @@
 """Local variant of bratekarate/beancount-categorizer."""
 
 import re
-from typing import Optional
 
 from beancount.core.data import Directive, Entries, Transaction
 from beancount.ingest.cache import _FileMemo as FileMemo
 from beancount.ingest.importer import ImporterProtocol
-from beancount_aib.helpers import Post
 from smart_importer.hooks import ImporterHook
+
+from beancount_aib.helpers import Post
 
 
 class PayeeCategorizer(ImporterHook):
@@ -26,10 +26,10 @@ class PayeeCategorizer(ImporterHook):
 
     def __call__(  # noqa: D102
         self,
-        _importer: Optional[ImporterProtocol],
-        _file: Optional[FileMemo],
+        _importer: ImporterProtocol | None,
+        _file: FileMemo | None,
         imported_entries: Entries,
-        _existing_entries: Optional[Entries],
+        _existing_entries: Entries | None,
     ) -> Entries:
         return [self._process(entry) for entry in imported_entries]
 

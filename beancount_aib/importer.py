@@ -3,17 +3,18 @@
 import csv
 import datetime
 from functools import cache
-from typing import Any, Optional
+from typing import Any
 
 from beancount.core.data import Entries, Transaction, new_metadata
 from beancount.ingest.importer import ImporterProtocol
+from beancount_tx_cleanup.cleaner import TxnPayeeCleanup
+
 from beancount_aib.extractors import AIB_EXTRACTORS
 from beancount_aib.helpers import (
     Bal,
     Post,
     Tx,
 )
-from beancount_tx_cleanup.cleaner import TxnPayeeCleanup
 
 
 class LineNoDictReader(csv.DictReader):
@@ -65,7 +66,7 @@ class Importer(ImporterProtocol):
     default_account = '__UNKNOWN__'
     default_narration = ''
 
-    def __init__(self, account_map: dict[str, str], cutoff_days: Optional[int] = None):
+    def __init__(self, account_map: dict[str, str], cutoff_days: int | None = None):
         """Create new Importer instance, part of ImporterProtocol.
 
         - account_map maps account names present in the CSV file to account names used by beancount
@@ -99,7 +100,7 @@ class Importer(ImporterProtocol):
         )
         return first_line_account in self.account_map
 
-    def file_date(self, file) -> Optional[datetime.date]:
+    def file_date(self, file) -> datetime.date | None:
         """Return the date of the last transaction in the file; part of ImporterProtocol.
 
         This date is treated as file's date, that is a date for which this file is representative.
@@ -115,10 +116,10 @@ class Importer(ImporterProtocol):
             return self.importer_account
         return self.default_account
 
-    def _parse(self, file) -> tuple[Entries, Optional[dict[str, Any]]]:
+    def _parse(self, file) -> tuple[Entries, dict[str, Any] | None]:
         """Read file, extract transactions."""
         entries: Entries = []
-        last_balance: Optional[dict[str, Any]] = None
+        last_balance: dict[str, Any] | None = None
         for row in self.read(file):
             # grab values from the csv row
             tags = set()

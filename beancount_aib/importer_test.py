@@ -5,6 +5,7 @@ from io import StringIO
 from typing import ClassVar
 
 import pytest
+
 from beancount_aib.helpers import Bal, Post, Tx
 from beancount_aib.importer import Importer, LineNoDictReader
 
