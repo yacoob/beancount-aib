@@ -41,24 +41,30 @@ def test_StringMemo():  # noqa: D103
 
 
 @pytest.fixture()
-def input_file(request):
-    """input_file prepares a fake file object from the test function's mark.
+def filecontents(request):
+    """Provide the string from filecontents mark.
 
-    If there's a 'stringio' mark present, it's a
-    io.StringIO file object, otherwise it's StringMemo object. The content of
-    the file is taken from the `filecontents` marker.
-
-    NOTE: both leading and trailing whitespace are trimmed from the content
+    Both leading and trailing whitespace are trimmed from the content
     """
     marker_content = None
     if marker := request.node.get_closest_marker('filecontents'):
         marker_content = marker.args[0]
     content = marker_content or ''
-    fc = StringIO if request.node.get_closest_marker('stringio') else StringMemo
-    return fc(content.strip())
+    return content.strip()
 
 
-@pytest.mark.stringio()
+@pytest.fixture()
+def input_file(filecontents):
+    """Provide the filecontents mark as a standard file object."""
+    return StringIO(filecontents)
+
+
+@pytest.fixture()
+def input_memo(filecontents):
+    """Provide the filecontents mark as a FileMemo-like object, suitable to feed into a beancount Importer."""
+    return StringMemo(filecontents)
+
+
 @pytest.mark.filecontents("""
 lead,support,support2,support3
 Picard,Data,Worf,Troi
@@ -114,11 +120,11 @@ class TestImporter:
     absolutely: not a csv file
     more: 42
     """)
-    def test_not_a_csv_file(self, input_file):  # noqa: D102
-        assert not self.importer.identify(input_file)
-        assert self.importer.file_date(input_file) is None
-        assert self.importer.file_account(input_file) == self.importer.default_account
-        assert self.importer.extract(input_file, []) == []
+    def test_not_a_csv_file(self, input_memo):  # noqa: D102
+        assert not self.importer.identify(input_memo)
+        assert self.importer.file_date(input_memo) is None
+        assert self.importer.file_account(input_memo) == self.importer.default_account
+        assert self.importer.extract(input_memo, []) == []
 
     @pytest.mark.filecontents("""
     Posted Account, Posted Transactions Date, Description1
@@ -126,10 +132,10 @@ class TestImporter:
     "111", "02/01/2024", "croissants"
     "111", "03/01/2024", "twenty feet of pure white snow
     """)
-    def test_valid_file(self, input_file):  # noqa: D102
-        assert self.importer.identify(input_file)
-        assert self.importer.file_date(input_file) == datetime.date(2024, 1, 3)
-        assert self.importer.file_account(input_file) == self.account_map['111']
+    def test_valid_file(self, input_memo):  # noqa: D102
+        assert self.importer.identify(input_memo)
+        assert self.importer.file_date(input_memo) == datetime.date(2024, 1, 3)
+        assert self.importer.file_account(input_memo) == self.account_map['111']
 
     @pytest.mark.filecontents("""
     111,x,y
@@ -138,8 +144,8 @@ class TestImporter:
     999,e,f
     111,g,h
     """)
-    def test_multiple_accounts_file(self, input_file):  # noqa: D102
-        assert not self.importer.identify(input_file)
+    def test_multiple_accounts_file(self, input_memo):  # noqa: D102
+        assert not self.importer.identify(input_memo)
 
     @pytest.mark.filecontents("""
     999,x,y
@@ -148,8 +154,8 @@ class TestImporter:
     999,e,f
     999,g,h
     """)
-    def test_account_not_in_map(self, input_file):  # noqa: D102
-        assert not self.importer.identify(input_file)
+    def test_account_not_in_map(self, input_memo):  # noqa: D102
+        assert not self.importer.identify(input_memo)
 
 
 @pytest.mark.filecontents("""
@@ -183,24 +189,24 @@ class TestImporterCutoff:
             Bal(self.account_name, '700', datetime.date(2024, 1, 4)),
         ]  # fmt: skip
 
-    def test_cutoff_zero(self, input_file, existing_entries):
+    def test_cutoff_zero(self, input_memo, existing_entries):
         """Remove txs older than the oldest existing tx for the account in question."""
-        txs = Importer(self.account_map, cutoff_days=0).extract(input_file, existing_entries)  # fmt: skip
+        txs = Importer(self.account_map, cutoff_days=0).extract(input_memo, existing_entries)  # fmt: skip
         assert len(txs) == 4  # noqa: PLR2004
         assert txs[0].date == datetime.date(2024, 1, 3)
         assert txs[-1].date == datetime.date(2024, 1, 6)
 
-    def test_no_existing_txs(self, input_file):
+    def test_no_existing_txs(self, input_memo):
         """No existing txs -> no culling."""
-        txs = Importer(self.account_map, cutoff_days=1).extract(input_file, [])
+        txs = Importer(self.account_map, cutoff_days=1).extract(input_memo, [])
         assert len(txs) == 6  # noqa: PLR2004
         assert txs[0].date == datetime.date(2024, 1, 1)
         assert txs[-1].date == datetime.date(2024, 1, 6)
 
-    def test_existing_txs_have_different_accounts(self, input_file, existing_entries):
+    def test_existing_txs_have_different_accounts(self, input_memo, existing_entries):
         """Same as test_cutoff_zero, but cutoff_days is greater, and the existing set contains txs for multiple accounts."""
         existing_entries[2] = Tx(datetime.date(2024, 1, 2), 'stick horse', postings=[Post('Assets:SFB:Secret', amount='300.00')])  # fmt: skip
-        txs = Importer(self.account_map, cutoff_days=1).extract(input_file, existing_entries)  # fmt: skip
+        txs = Importer(self.account_map, cutoff_days=1).extract(input_memo, existing_entries)  # fmt: skip
         assert len(txs) == 6  # noqa: PLR2004
         assert txs[0].date == datetime.date(2024, 1, 1)
         assert txs[-1].date == datetime.date(2024, 1, 6)
