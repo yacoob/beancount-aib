@@ -1,0 +1,23 @@
+[project]
+name = "beancount-aib"
+version = "0.1.0"
+description = "Beancount importer for CSVs exported by AIB"
+authors = [{ name = "Jakub Turski", email = "yacoob@ftml.net" }]
+dependencies = ["beancount <3"]
+readme = "README.md"
+requires-python = ">= 3.11"
+classifiers = ["Private :: Do Not Upload"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["beancount_aib"]
