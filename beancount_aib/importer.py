@@ -2,6 +2,7 @@
 
 import csv
 import datetime
+from copy import deepcopy
 from functools import cache
 from typing import Any
 
@@ -80,7 +81,7 @@ class Importer(ImporterProtocol):
         """
         self.importer_account = self.default_account
         self.account_map = account_map
-        self.extractors = extractors or AIB_EXTRACTORS.copy()
+        self.extractors = extractors or deepcopy(AIB_EXTRACTORS)
         self.cutoff_point = None
         if cutoff_days is not None:
             self.cutoff_point = datetime.timedelta(days=cutoff_days)

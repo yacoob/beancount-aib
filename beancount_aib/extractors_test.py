@@ -1,5 +1,7 @@
 """Tests for specific extractors configured for AIB."""
 
+from copy import deepcopy
+
 import pytest
 from beancount_tx_cleanup.cleaner import TxnPayeeCleanup
 from beancount_tx_cleanup.cleaner_test import CS, BasicExtractorTest
@@ -30,6 +32,7 @@ class TestAibTxnCleanup(BasicExtractorTest):  # noqa: D101
 
         NOTE: you need a full regression test in addition to CLEANER_SCENARIOS above.
         """
+        extractors = deepcopy(AIB_EXTRACTORS)
         tx = Tx(
             self.date,
             scenario.input_payee,
@@ -42,4 +45,4 @@ class TestAibTxnCleanup(BasicExtractorTest):  # noqa: D101
             tags=scenario.tags,
             meta=scenario.meta,
         )
-        assert clean_tx == TxnPayeeCleanup(tx, AIB_EXTRACTORS, preserveOriginalIn=None)
+        assert clean_tx == TxnPayeeCleanup(tx, extractors, preserveOriginalIn=None)
