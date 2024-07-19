@@ -3,7 +3,11 @@ name = "beancount-aib"
 version = "0.1.0"
 description = "Beancount importer for CSVs exported by AIB"
 authors = [{ name = "Jakub Turski", email = "yacoob@ftml.net" }]
-dependencies = ["beancount <3"]
+dependencies = [
+  "beancount <3, >=2",
+  "beancount-tx-cleanup >=0.1.0",
+  "smart-importer>=0.5",
+]
 readme = "README.md"
 requires-python = ">= 3.11"
 classifiers = ["Private :: Do Not Upload"]
