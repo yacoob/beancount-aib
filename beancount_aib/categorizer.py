@@ -5,9 +5,8 @@ import re
 from beancount.core.data import Directive, Entries, Transaction
 from beancount.ingest.cache import _FileMemo as FileMemo
 from beancount.ingest.importer import ImporterProtocol
+from beancount_tx_cleanup.helpers import Post
 from smart_importer.hooks import ImporterHook
-
-from beancount_aib.helpers import Post
 
 
 class PayeeCategorizer(ImporterHook):

@@ -8,13 +8,13 @@ from typing import Any
 from beancount.core.data import Entries, Transaction, new_metadata
 from beancount.ingest.importer import ImporterProtocol
 from beancount_tx_cleanup.cleaner import Extractors, TxnPayeeCleanup
-
-from beancount_aib.extractors import AIB_EXTRACTORS
-from beancount_aib.helpers import (
+from beancount_tx_cleanup.helpers import (
     Bal,
     Post,
     Tx,
 )
+
+from beancount_aib.extractors import AIB_EXTRACTORS
 
 
 class LineNoDictReader(csv.DictReader):
