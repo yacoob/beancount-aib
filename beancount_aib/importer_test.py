@@ -41,7 +41,7 @@ def test_StringMemo():  # noqa: D103
     assert s.contents() == c
 
 
-@pytest.fixture()
+@pytest.fixture
 def filecontents(request):
     """Provide the string from filecontents mark.
 
@@ -54,13 +54,13 @@ def filecontents(request):
     return content.strip()
 
 
-@pytest.fixture()
+@pytest.fixture
 def input_file(filecontents):
     """Provide the filecontents mark as a standard file object."""
     return StringIO(filecontents)
 
 
-@pytest.fixture()
+@pytest.fixture
 def input_memo(filecontents):
     """Provide the filecontents mark as a FileMemo-like object, suitable to feed into a beancount Importer."""
     return StringMemo(filecontents)
@@ -130,13 +130,13 @@ class TestImporter:
 
     @pytest.mark.filecontents("""
     Posted Account, Posted Transactions Date, Description1
-    "111", "01/01/2024", "nuts and bolts"
-    "111", "02/01/2024", "croissants"
-    "111", "03/01/2024", "twenty feet of pure white snow
+    "111", "01/01/2063", "nuts and bolts"
+    "111", "02/01/2063", "croissants"
+    "111", "03/01/2063", "twenty feet of pure white snow
     """)
     def test_valid_file(self, input_memo):  # noqa: D102
         assert self.importer.identify(input_memo)
-        assert self.importer.file_date(input_memo) == datetime.date(2024, 1, 3)
+        assert self.importer.file_date(input_memo) == datetime.date(2063, 1, 3)
         assert self.importer.file_account(input_memo) == self.account_map['111']
         # TODO: check extract() result and extractor usage here too?
 
@@ -163,11 +163,11 @@ class TestImporter:
 
 @pytest.mark.filecontents("""
 Posted Account, Posted Transactions Date, Description1, Description2, Description3, Debit Amount, Credit Amount,Balance,Posted Currency,Transaction Type,Local Currency Amount,Local Currency
-"111","01/01/2024","nine golden rings","","","9.99",,"1200.00",EUR,"Debit"," 9.99",EUR
-"111","02/01/2024","ring wraith costume","","","200.00",,"1000.00",EUR,"Debit"," 200.00",EUR
-"111","03/01/2024","stick horse","","","300.00",,"700.00",EUR,"Debit"," 300.00",EUR
-"111","04/01/2024","ACME hobbit trap","","","50.00",,"650.00",EUR,"Debit"," 50.00",EUR
-"111","05/01/2024","stick wyvern","","","400.00",,"250.00",EUR,"Debit"," 400.00",EUR
+"111","01/01/2063","nine golden rings","","","9.99",,"1200.00",EUR,"Debit"," 9.99",EUR
+"111","02/01/2063","ring wraith costume","","","200.00",,"1000.00",EUR,"Debit"," 200.00",EUR
+"111","03/01/2063","stick horse","","","300.00",,"700.00",EUR,"Debit"," 300.00",EUR
+"111","04/01/2063","ACME hobbit trap","","","50.00",,"650.00",EUR,"Debit"," 50.00",EUR
+"111","05/01/2063","stick wyvern","","","400.00",,"250.00",EUR,"Debit"," 400.00",EUR
 """)
 class TestImporterCutoff:
     """These tests excercise culling in situations where the imported txs overlap with the existing ones.
@@ -182,36 +182,36 @@ class TestImporterCutoff:
     account_name = 'Assets:AIB:Secret'
     account_map: ClassVar[dict[str, str]] = {'111': account_name}
 
-    @pytest.fixture()
+    @pytest.fixture
     def existing_entries(self):
         """Provide a set of existing txs. Modify as needed in each test."""
         return [
-            Tx(datetime.date(2024, 1, 1), 'nine golden rings', postings=[Post(self.account_name, amount='9.99')]),
-            Tx(datetime.date(2024, 1, 2), 'ring wraith costume', postings=[Post(self.account_name, amount='200.00')]),
-            Tx(datetime.date(2024, 1, 3), 'stick horse', postings=[Post(self.account_name, amount='300.00')]),
-            Bal(self.account_name, '700', datetime.date(2024, 1, 4)),
+            Tx(datetime.date(2063, 1, 1), 'nine golden rings', postings=[Post(self.account_name, amount='9.99')]),
+            Tx(datetime.date(2063, 1, 2), 'ring wraith costume', postings=[Post(self.account_name, amount='200.00')]),
+            Tx(datetime.date(2063, 1, 3), 'stick horse', postings=[Post(self.account_name, amount='300.00')]),
+            Bal(self.account_name, '700', datetime.date(2063, 1, 4)),
         ]  # fmt: skip
 
     def test_cutoff_zero(self, input_memo, existing_entries):
         """Remove txs older than the oldest existing tx for the account in question."""
         txs = Importer(self.account_map, cutoff_days=0).extract(input_memo, existing_entries)  # fmt: skip
         assert len(txs) == 4  # noqa: PLR2004
-        assert txs[0].date == datetime.date(2024, 1, 3)
-        assert txs[-1].date == datetime.date(2024, 1, 6)
+        assert txs[0].date == datetime.date(2063, 1, 3)
+        assert txs[-1].date == datetime.date(2063, 1, 6)
 
     def test_no_existing_txs(self, input_memo):
         """No existing txs -> no culling."""
         txs = Importer(self.account_map, cutoff_days=1).extract(input_memo, [])
         assert len(txs) == 6  # noqa: PLR2004
-        assert txs[0].date == datetime.date(2024, 1, 1)
-        assert txs[-1].date == datetime.date(2024, 1, 6)
+        assert txs[0].date == datetime.date(2063, 1, 1)
+        assert txs[-1].date == datetime.date(2063, 1, 6)
 
     def test_existing_txs_have_different_accounts(self, input_memo, existing_entries):
         """Same as test_cutoff_zero, but cutoff_days is greater, and the existing set contains txs for multiple accounts."""
-        existing_entries[2] = Tx(datetime.date(2024, 1, 2), 'stick horse', postings=[Post('Assets:SFB:Secret', amount='300.00')])  # fmt: skip
+        existing_entries[2] = Tx(datetime.date(2063, 1, 2), 'stick horse', postings=[Post('Assets:SFB:Secret', amount='300.00')])  # fmt: skip
         txs = Importer(self.account_map, cutoff_days=1).extract(input_memo, existing_entries)  # fmt: skip
         assert len(txs) == 6  # noqa: PLR2004
-        assert txs[0].date == datetime.date(2024, 1, 1)
-        assert txs[-1].date == datetime.date(2024, 1, 6)
+        assert txs[0].date == datetime.date(2063, 1, 1)
+        assert txs[-1].date == datetime.date(2063, 1, 6)
 
     # TODO: add a test for cutoff_days=None

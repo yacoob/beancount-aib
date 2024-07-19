@@ -23,19 +23,19 @@ class TestPayeeCategorizer:
     txs: tuple[Directive, ...] = (
         # grocery shopping at Tesco
         # should be categorized as Groceries
-        Tx(datetime.date(2024, 1, 1), 'TESCO STORES 7', postings=[Post(account, amount='42.99')]),
+        Tx(datetime.date(2099, 1, 1), 'TESCO STORES 7', postings=[Post(account, amount='42.99')]),
         # visit to Zaytoon
         # should be categorized as Restaurants
-        Tx(datetime.date(2024, 1, 2), 'Zaytoon North', postings=[Post(account, amount='13.33')]),
+        Tx(datetime.date(2099, 1, 2), 'Zaytoon North', postings=[Post(account, amount='13.33')]),
         # tool purchase at Woodie's
         # this tx has two postings already and should be left unmodified
-        Tx(datetime.date(2024, 1, 3), 'Woodies', postings=[Post(account, amount='50.12'), Post('Expenses:Household', amount='-50.12')]),
+        Tx(datetime.date(2099, 1, 3), 'Woodies', postings=[Post(account, amount='50.12'), Post('Expenses:Household', amount='-50.12')]),
         # dining at The Winding Stairs
         # should be categorized as Restaurants
-        Tx(datetime.date(2024, 1, 4), 'The Winding Stairs', postings=[Post(account, amount='67.23')]),
+        Tx(datetime.date(2099, 1, 4), 'The Winding Stairs', postings=[Post(account, amount='67.23')]),
         # manga buying at The Forbidden Planet
         # this tx doesn't match any predefined rules and should be left unmodified
-        Tx(datetime.date(2024, 1, 5), 'forbidden planet', postings=[Post(account, amount='18.81')]),
+        Tx(datetime.date(2099, 1, 5), 'forbidden planet', postings=[Post(account, amount='18.81')]),
     )  # fmt: skip
 
     def test_creation(self):

@@ -1,10 +1,11 @@
 """Tests for specific extractors configured for AIB."""
 
+import datetime
 from copy import deepcopy
 
 import pytest
 from beancount_tx_cleanup.cleaner import TxnPayeeCleanup
-from beancount_tx_cleanup.cleaner_test import CS, BasicExtractorTest
+from beancount_tx_cleanup.cleaner_test import CS
 from beancount_tx_cleanup.helpers import Tx
 
 from beancount_aib.extractors import AIB_EXTRACTORS
@@ -24,7 +25,9 @@ CLEANER_SCENARIOS = [
 
 
 @pytest.mark.parametrize('scenario', CLEANER_SCENARIOS)
-class TestAibTxnCleanup(BasicExtractorTest):  # noqa: D101
+class TestAibTxnCleanup:
+    date = datetime.date(2510, 7, 9)
+
     # TODO: reuse the code from beancount_tx_cleanup.cleanup_test.TestCleanerFunctionality.test_cleaning
     #       or retire this entire class in favour of a completeness check in the regression test.
     def test_payee_mangling(self, scenario):
