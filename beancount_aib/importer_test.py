@@ -115,7 +115,7 @@ class TestImporter:
     """
 
     account_map: ClassVar[dict[str, str]] = {'111': 'Assets:AIB:Secret'}
-    importer = Importer(account_map, cutoff_days=None)
+    importer = Importer(account_map)
 
     @pytest.mark.filecontents("""
     absolutely: not a csv file
@@ -126,6 +126,7 @@ class TestImporter:
         assert self.importer.file_date(input_memo) is None
         assert self.importer.file_account(input_memo) == self.importer.default_account
         assert self.importer.extract(input_memo, []) == []
+        # TODO: check extractor usage here too?
 
     @pytest.mark.filecontents("""
     Posted Account, Posted Transactions Date, Description1
@@ -137,6 +138,7 @@ class TestImporter:
         assert self.importer.identify(input_memo)
         assert self.importer.file_date(input_memo) == datetime.date(2024, 1, 3)
         assert self.importer.file_account(input_memo) == self.account_map['111']
+        # TODO: check extract() result and extractor usage here too?
 
     @pytest.mark.filecontents("""
     111,x,y
@@ -211,3 +213,5 @@ class TestImporterCutoff:
         assert len(txs) == 6  # noqa: PLR2004
         assert txs[0].date == datetime.date(2024, 1, 1)
         assert txs[-1].date == datetime.date(2024, 1, 6)
+
+    # TODO: add a test for cutoff_days=None

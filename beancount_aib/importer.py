@@ -7,7 +7,7 @@ from typing import Any
 
 from beancount.core.data import Entries, Transaction, new_metadata
 from beancount.ingest.importer import ImporterProtocol
-from beancount_tx_cleanup.cleaner import TxnPayeeCleanup
+from beancount_tx_cleanup.cleaner import Extractors, TxnPayeeCleanup
 
 from beancount_aib.extractors import AIB_EXTRACTORS
 from beancount_aib.helpers import (
@@ -66,20 +66,27 @@ class Importer(ImporterProtocol):
     default_account = '__UNKNOWN__'
     default_narration = ''
 
-    def __init__(self, account_map: dict[str, str], cutoff_days: int | None = None):
+    def __init__(
+        self,
+        account_map: dict[str, str],
+        extractors: Extractors | None = None,
+        cutoff_days: int | None = None,
+    ):
         """Create new Importer instance, part of ImporterProtocol.
 
         - account_map maps account names present in the CSV file to account names used by beancount
         - if set, `cutoff_days` will drop all incoming transactions older than latest existing
           transaction for this account minus cutoff_point days
         """
-        self.account_map = account_map
         self.importer_account = self.default_account
+        self.account_map = account_map
+        self.extractors = extractors or AIB_EXTRACTORS.copy()
         self.cutoff_point = None
         if cutoff_days is not None:
             self.cutoff_point = datetime.timedelta(days=cutoff_days)
 
-    def read(self, file) -> list[dict]:  # noqa: D102
+    @staticmethod
+    def read(file) -> list[dict]:  # noqa: D102
         return csv2rowlist(file)
 
     def identify(self, file) -> bool:
@@ -163,11 +170,12 @@ class Importer(ImporterProtocol):
                 ],
             )
             # apply cleanups, extract metadata
-            txn = TxnPayeeCleanup(
-                txn,
-                AIB_EXTRACTORS,
-                preserveOriginalIn='original-payee',
-            )
+            if self.extractors:
+                txn = TxnPayeeCleanup(
+                    txn,
+                    self.extractors,
+                    preserveOriginalIn='original-payee',
+                )
             entries.append(txn)
             # update last seen balance
             if balance := row.get('Balance', None):
