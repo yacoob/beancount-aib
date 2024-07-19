@@ -12,12 +12,65 @@ classifiers = ["Private :: Do Not Upload"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.rye]
-managed = true
-dev-dependencies = []
-
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["beancount_aib"]
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+## extra tooling
+#
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.coverage.run]
+branch = true
+source = ['beancount_aib']
+omit = ['**/*_test.py']
+
+[tool.pytest.ini_options]
+console_output_style = 'classic'
+addopts = '--cov --no-cov-on-fail'
+
+[tool.ruff]
+fix = true
+
+[tool.ruff.format]
+quote-style = 'single'
+docstring-code-format = true
+docstring-code-line-length = 60
+
+[tool.ruff.lint]
+extend-select = [
+  "A",
+  "ARG",
+  "B",
+  "C",
+  "C4",
+  "COM",
+  "D",
+  "ERA",
+  "EXE",
+  "FBT",
+  "FURB",
+  "I",
+  "ICN",
+  "ISC",
+  "PERF",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "PT",
+  "RET",
+  "RUF",
+  "SIM",
+  "SLF",
+  "UP",
+  "W",
+]
