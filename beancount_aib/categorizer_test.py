@@ -5,9 +5,8 @@ import re
 from typing import ClassVar
 
 from beancount.core.data import Directive
-from beancount_tx_cleanup.helpers import Post, Tx
-
 from beancount_aib.categorizer import PayeeCategorizer
+from beancount_tx_cleanup.helpers import Post, Tx
 
 
 class TestPayeeCategorizer:
