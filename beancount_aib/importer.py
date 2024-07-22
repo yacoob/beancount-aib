@@ -34,7 +34,9 @@ def csv2rowlist(file) -> list[dict]:
     Importer instance, which is a memory leak recipe.
 
     """
-    return list(LineNoDictReader(file.contents().split('\n'), skipinitialspace=True))
+    return list(
+        LineNoDictReader(file.contents().split('\n'), skipinitialspace=True),
+    )
 
 
 class Importer(ImporterProtocol):
@@ -113,7 +115,9 @@ class Importer(ImporterProtocol):
         This date is treated as file's date, that is a date for which this file is representative.
         """
         if self.identify(file):
-            last_row_date = self.read(file)[-1]['Posted Transactions Date'].strip()
+            last_row_date = self.read(file)[-1][
+                'Posted Transactions Date'
+            ].strip()
             return datetime.datetime.strptime(last_row_date, '%d/%m/%Y').date()
         return None
 
@@ -166,7 +170,11 @@ class Importer(ImporterProtocol):
                 meta=meta,
                 tags=tags,
                 postings=[
-                    Post(self.importer_account, amount=amount, currency=self.currency),
+                    Post(
+                        self.importer_account,
+                        amount=amount,
+                        currency=self.currency,
+                    ),
                 ],
             )
             # apply cleanups, extract metadata
@@ -208,7 +216,9 @@ class Importer(ImporterProtocol):
             # - remove all entries happening earlier than self.overlap_days before that
             if latest_date:
                 entries = [
-                    e for e in entries if e.date >= (latest_date - self.cutoff_point)
+                    e
+                    for e in entries
+                    if e.date >= (latest_date - self.cutoff_point)
                 ]
 
         # add a balance entry at the end

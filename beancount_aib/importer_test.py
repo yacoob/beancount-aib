@@ -123,7 +123,10 @@ class TestImporter:
     def test_not_a_csv_file(self, input_memo):  # noqa: D102
         assert not self.importer.identify(input_memo)
         assert self.importer.file_date(input_memo) is None
-        assert self.importer.file_account(input_memo) == self.importer.default_account
+        assert (
+            self.importer.file_account(input_memo)
+            == self.importer.default_account
+        )
         assert self.importer.extract(input_memo, []) == []
         # TODO: check extractor usage here too?
 
@@ -205,7 +208,11 @@ class TestImporterCutoff:
         assert txs[0].date == datetime.date(2063, 1, 1)
         assert txs[-1].date == datetime.date(2063, 1, 6)
 
-    def test_existing_txs_have_different_accounts(self, input_memo, existing_entries):
+    def test_existing_txs_have_different_accounts(
+        self,
+        input_memo,
+        existing_entries,
+    ):
         """Same as test_cutoff_zero, but cutoff_days is greater, and the existing set contains txs for multiple accounts."""
         existing_entries[2] = Tx(datetime.date(2063, 1, 2), 'stick horse', postings=[Post('Assets:SFB:Secret', amount='300.00')])  # fmt: skip
         txs = Importer(self.account_map, cutoff_days=1).extract(input_memo, existing_entries)  # fmt: skip

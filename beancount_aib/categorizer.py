@@ -12,8 +12,8 @@ from smart_importer.hooks import ImporterHook
 class PayeeCategorizer(ImporterHook):
     """PayeeCategorizer is pretty much https://github.com/bratekarate/beancount-categorizer.
 
-    I've cleaned it up, modified a bit, sprinkled with type annotations, and added tests.
-    I didn't want to have an unreleased code dependency.
+    I've cleaned it up, modified a bit, sprinkled with type annotations, and
+    added tests. I didn't want to have an unreleased code dependency.
     Thanks bratekarate! :)
     """
 

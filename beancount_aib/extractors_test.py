@@ -49,4 +49,8 @@ class TestAibTxnCleanup:
             tags=scenario.tags,
             meta=scenario.meta,
         )
-        assert clean_tx == TxnPayeeCleanup(tx, extractors, preserveOriginalIn=None)
+        assert clean_tx == TxnPayeeCleanup(
+            tx,
+            extractors,
+            preserveOriginalIn=None,
+        )
