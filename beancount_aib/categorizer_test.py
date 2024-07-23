@@ -4,7 +4,7 @@ import datetime
 import re
 from typing import ClassVar
 
-from beancount.core.data import Directive
+from beancount.core.data import Directive, Transaction
 from beancount_aib.categorizer import PayeeCategorizer
 from beancount_tx_cleanup.helpers import Post, Tx
 
@@ -46,7 +46,11 @@ class TestPayeeCategorizer:
 
     def test_categorization(self):
         """Run a set of txs through categorizer, verify added postings."""
-        processed_txs = self.categorizer(None, None, list(self.txs), None)
+        processed_txs = [
+            tx
+            for tx in self.categorizer(None, None, list(self.txs), None)
+            if isinstance(tx, Transaction)
+        ]
         assert len(processed_txs) == 5  # noqa: PLR2004
         expected_categories = [
             'Expenses:Groceries',     # Tesco shopping

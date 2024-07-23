@@ -7,6 +7,7 @@ from functools import cache
 from typing import Any
 
 from beancount.core.data import Entries, Transaction, new_metadata
+from beancount.ingest.cache import _FileMemo as FileMemo
 from beancount.ingest.importer import ImporterProtocol
 from beancount_aib.extractors import AIB_EXTRACTORS
 from beancount_tx_cleanup.cleaner import Extractors, TxnPayeeCleanup
@@ -91,7 +92,7 @@ class Importer(ImporterProtocol):
     def read(file) -> list[dict]:  # noqa: D102
         return csv2rowlist(file)
 
-    def identify(self, file) -> bool:
+    def identify(self, file: FileMemo) -> bool:
         """Verify whether Importer can handle given file; part of ImporterProtocol."""
         # does this file contain an actual csv content?
         if file.mimetype() != 'text/csv':

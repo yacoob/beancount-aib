@@ -35,7 +35,7 @@ class PayeeCategorizer(ImporterHook):
     def _process(self, entry: Directive) -> Directive:
         if type(entry) is Transaction and len(entry.postings) == 1:
             for account, regexp in self.categories.items():
-                if regexp.match(entry.payee):
+                if entry.payee and regexp.match(entry.payee):
                     entry.postings.append(Post(account))
                     break
         return entry
