@@ -10,7 +10,7 @@ from beancount.core.data import Entries, Transaction, new_metadata
 from beancount.ingest.cache import _FileMemo as FileMemo
 from beancount.ingest.importer import ImporterProtocol
 from beancount_aib.extractors import AIB_EXTRACTORS
-from beancount_tx_cleanup.cleaner import Extractors, TxnPayeeCleanup
+from beancount_tx_cleanup.cleaner import OldExtractors, OldTxnPayeeCleanup
 from beancount_tx_cleanup.helpers import (
     Bal,
     Post,
@@ -72,7 +72,7 @@ class Importer(ImporterProtocol):
     def __init__(
         self,
         account_map: dict[str, str],
-        extractors: Extractors | None = None,
+        extractors: OldExtractors | None = None,
         cutoff_days: int | None = None,
     ):
         """Create new Importer instance, part of ImporterProtocol.
@@ -180,7 +180,7 @@ class Importer(ImporterProtocol):
             )
             # apply cleanups, extract metadata
             if self.extractors:
-                txn = TxnPayeeCleanup(
+                txn = OldTxnPayeeCleanup(
                     txn,
                     self.extractors,
                     preserveOriginalIn='original-payee',

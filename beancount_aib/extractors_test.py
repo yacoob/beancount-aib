@@ -5,7 +5,7 @@ from copy import deepcopy
 
 import pytest
 from beancount_aib.extractors import AIB_EXTRACTORS
-from beancount_tx_cleanup.cleaner import TxnPayeeCleanup
+from beancount_tx_cleanup.cleaner import OldTxnPayeeCleanup
 from beancount_tx_cleanup.cleaner_test import CS
 from beancount_tx_cleanup.helpers import Tx
 
@@ -49,7 +49,7 @@ class TestAibTxnCleanup:
             tags=scenario.tags,
             meta=scenario.meta,
         )
-        assert clean_tx == TxnPayeeCleanup(
+        assert clean_tx == OldTxnPayeeCleanup(
             tx,
             extractors,
             preserveOriginalIn=None,
