@@ -97,7 +97,7 @@ _exs.append(
 _exs.append(
     E(
         r=r'(?i)^google +\b(payment|play|servic)',
-        actions=[M_GOOG, P(v=r'\0')],
+        actions=[M_GOOG, P(v=r'\g<0>')],
     ),
 )
 
