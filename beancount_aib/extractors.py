@@ -117,6 +117,7 @@ _exs.append(E(r=r'(?i)^amazon [\d-]+', actions=[P(v='Amazon')]))
 _exs.append(E(r=r'(?i)^(amazon[^*]+)\*.*', actions=[P(v=r'\g<1>')]))
 
 # An assortment of payees that routinely have a branch name present
+SHORT_NAME_LENGTH = 3
 _exs.append(
     E(
         r='(?i)^(applegreen|boi|centra|circle k|dunnes|eurospar|gamestop|mcdonalds|michie sushi|pablo picante|park rite|penneys|pizza hut|polonez|spar|starbucks|supervalu|topaz|ubl|ulster bank|wh smith|zabka) +(.+)$',
@@ -124,7 +125,7 @@ _exs.append(
             M(n='location', v=r'\2', transformer=lambda s: s.lower()),
             P(
                 v=lambda m: m.group(1).upper()
-                if len(m.group(1)) <= 3
+                if len(m.group(1)) <= SHORT_NAME_LENGTH
                 else m.group(1).capitalize(),
             ),
         ],
