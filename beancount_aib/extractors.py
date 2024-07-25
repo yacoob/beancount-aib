@@ -15,37 +15,31 @@ _exs: Extractors = []
 AIB_EXTRACTORS = _exs
 
 # remove leading and trailing stars
-_exs.append(E(r=r'(^\*|\*$)', actions=[C]))
-_exs.append(E(r=r'( \*|\* )', actions=[P(v=' ')]))
+_exs.append(E(r'(^\*|\*$)', C))
+_exs.append(E(r'( \*|\* )', P(' ')))
 
 # transaction timestamp
-_exs.append(
-    E(r=r'(?i)(time)? *(\d\d:\d\d)$', actions=[M(n='time', v=r'\2'), C]),
-)
+_exs.append(E(r'(?i)(time)? *(\d\d:\d\d)$', [M('time', v=r'\2'), C]))
 
 # foreign currency transaction
 _exs.append(
-    E(
-        r=r' ([\d.]+) ([A-Z]{3})@ [\d.]+',
-        actions=[M(n='foreign-amount'), T(v=r'\2'), C],
-    ),
+    E(r' ([\d.]+) ([A-Z]{3})@ [\d.]+', [M('foreign-amount'), T(r'\2'), C]),
 )
 
 # IDs that change for every instance of similar transactions
-M_ID = M(n='id')
-_exs.append(E(r=r' *(IE\d+)', actions=[M_ID, C]))
-_exs.append(E(r=r'RYANAIR +(.+)', actions=[M_ID, P(v='Ryanair')]))
-_exs.append(
-    E(r=r'FREENOW\*(?=.*\d)([A-Z\d-]+)', actions=[M_ID, P(v='FreeNow')]),
-)
+M_ID = M('id')
+_exs.append(E(r' *(IE\d+)', [M_ID, C]))
+_exs.append(E(r'RYANAIR +(.+)', [M_ID, P('Ryanair')]))
+_exs.append(E(r'FREENOW\*(?=.*\d)([A-Z\d-]+)', [M_ID, P('FreeNow')]))
 
 # transaction flavour
 # https://aib.ie/our-products/current-accounts/keeping-track-of-your-transactions
 _exs.append(
     E(
-        r=r'(?i)^(vd[apc]|op/|atm|pos|mobi|inet|d/d|atmldg|ms[ap]|)[- ]',
-        actions=[
+        r'(?i)^(vd[apc]|op/|atm|pos|mobi|inet|d/d|atmldg|ms[ap]|)[- ]',
+        [
             T(
+                r'\1',
                 translation={
                     'atm': 'atm-aib',
                     'atmldg': 'atm-lodgement',
@@ -70,10 +64,10 @@ _exs.append(
 TAG = 'payment-processor'
 _exs.append(
     E(
-        r=r'(?i)^(paypal|sumup|sq|sp|zettle)[ _]',
-        actions=[
+        r'(?i)^(paypal|sumup|sq|sp|zettle)[ _]',
+        [
             M(
-                n=TAG,
+                TAG,
                 transformer=lambda m: m.lower(),
                 translation={
                     'sq': 'square',
@@ -84,47 +78,47 @@ _exs.append(
         ],
     ),
 )
-M_GOOG = M(n=TAG, v='google')
+M_GOOG = M(TAG, v='google')
 _exs.append(
     E(
-        r=r'(?i)^google +\b(?!google|cloud|commerce|domain|ireland|music|payment|play|servic|svcs|store|youtub|voic)(.+)',
-        actions=[
+        r'(?i)^google +\b(?!google|cloud|commerce|domain|ireland|music|payment|play|servic|svcs|store|youtub|voic)(.+)',
+        [
             M_GOOG,
-            P(v=r'\1'),
+            P(r'\1'),
         ],
     ),
 )
 _exs.append(
     E(
-        r=r'(?i)^google +\b(payment|play|servic)',
-        actions=[M_GOOG, P(v=r'\g<0>')],
+        r'(?i)^google +\b(payment|play|servic)',
+        [M_GOOG, P(r'\g<0>')],
     ),
 )
 
 # remove the date strings, unless it's describing a quarterly fee transaction
-_exs.append(E(r=r'(?<!TO )\d\d[A-Z]{3}\d\d *', actions=[C]))
+_exs.append(E(r'(?<!TO )\d\d[A-Z]{3}\d\d *', C))
 
 
 # behold the museum of Amazon payment strings >_<;
 _exs.append(
     E(
-        r=r'(?i)^(www.)?amazon((\.co)?\.[a-z]{2,3})(.*)',
-        actions=[P(v=lambda m: r'Amazon' + m.group(2).lower() + m.group(4))],
+        r'(?i)^(www.)?amazon((\.co)?\.[a-z]{2,3})(.*)',
+        P(lambda m: r'Amazon' + m.group(2).lower() + m.group(4)),
     ),
 )
-_exs.append(E(r=r'(?i)^amazon prime.*', actions=[P(v='Amazon Prime')]))
-_exs.append(E(r=r'(?i)^amazon [\d-]+', actions=[P(v='Amazon')]))
-_exs.append(E(r=r'(?i)^(amazon[^*]+)\*.*', actions=[P(v=r'\g<1>')]))
+_exs.append(E(r'(?i)^amazon prime.*', P('Amazon Prime')))
+_exs.append(E(r'(?i)^amazon [\d-]+', P('Amazon')))
+_exs.append(E(r'(?i)^(amazon[^*]+)\*.*', P(r'\g<1>')))
 
 # An assortment of payees that routinely have a branch name present
 SHORT_NAME_LENGTH = 3
 _exs.append(
     E(
-        r='(?i)^(applegreen|boi|centra|circle k|dunnes|eurospar|gamestop|mcdonalds|michie sushi|pablo picante|park rite|penneys|pizza hut|polonez|spar|starbucks|supervalu|topaz|ubl|ulster bank|wh smith|zabka) +(.+)$',
-        actions=[
-            M(n='location', v=r'\2', transformer=lambda s: s.lower()),
+        r'(?i)^(applegreen|boi|centra|circle k|dunnes|eurospar|gamestop|mcdonalds|michie sushi|pablo picante|park rite|penneys|pizza hut|polonez|spar|starbucks|supervalu|topaz|ubl|ulster bank|wh smith|zabka) +(.+)$',
+        [
+            M('location', v=r'\2', transformer=lambda s: s.lower()),
             P(
-                v=lambda m: m.group(1).upper()
+                lambda m: m.group(1).upper()
                 if len(m.group(1)) <= SHORT_NAME_LENGTH
                 else m.group(1).capitalize(),
             ),
