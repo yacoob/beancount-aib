@@ -4,53 +4,35 @@ import datetime
 from copy import deepcopy
 
 import pytest
+from beancount.core.data import Transaction
 from beancount_aib.extractors import AIB_EXTRACTORS
 from beancount_tx_cleanup.cleaner import TxnPayeeCleanup
-from beancount_tx_cleanup.cleaner_test import CS
-from beancount_tx_cleanup.helpers import Tx
+from beancount_tx_cleanup.cleaner_test import TestTxMaker
+
+TESTDATE = datetime.date(2510, 7, 9)
+TTx = TestTxMaker(TESTDATE)
 
 # TODO: add more of these once AIB_EXTRACTORS is cleaned of stale rules
-CLEANER_SCENARIOS = [
-    CS('MUNDANE LTD', 'MUNDANE LTD'),
-    CS('BULLET*STAR', 'BULLET*STAR'),
-    CS('*MOBI ANGRY LEMON', 'ANGRY LEMON', tags={'app'}),
-    CS('VDC-INSOMNIA', 'INSOMNIA', tags={'contactless'}),
-    CS('VDP-TESCO', 'TESCO', tags={'point-of-sale'}),
-    CS('LEEROY JENKINS IE10293482', 'LEEROY JENKINS', meta={'id': 'IE10293482'}),
-    CS('VDP-PAYPAL *EVIL', 'EVIL', tags={'point-of-sale'}, meta={'payment-processor': 'paypal'}),
-    CS('VDC-SUMUP PASTRY', 'PASTRY', tags={'contactless'}, meta={'payment-processor': 'sumup'}),
-    CS('VDA-PERNAMBUCO 100.00 BRL@ 0.17', 'PERNAMBUCO', tags={'atm', 'BRL'}, meta={'foreign-amount': '100.00'}),
+CLEANER_SCENARIOS: list[tuple[Transaction, Transaction]] = [
+    (TTx('MUNDANE LTD'), TTx('MUNDANE LTD')),
+    (TTx('BULLET*STAR'), TTx('BULLET*STAR')),
+    (TTx('*MOBI ANGRY LEMON'), TTx('ANGRY LEMON', tags={'app'})),
+    (TTx('VDC-INSOMNIA'), TTx('INSOMNIA', tags={'contactless'})),
+    (TTx('VDP-TESCO'), TTx('TESCO', tags={'point-of-sale'})),
+    (TTx('LEEROY JENKINS IE10293482'), TTx('LEEROY JENKINS', meta={'id': 'IE10293482'})),
+    (TTx('VDP-PAYPAL *EVIL'), TTx('EVIL', tags={'point-of-sale'}, meta={'payment-processor': 'paypal'})),
+    (TTx('VDC-SUMUP PASTRY'), TTx('PASTRY', tags={'contactless'}, meta={'payment-processor': 'sumup'})),
+    (TTx('VDA-PERNAMBUCO 100.00 BRL@ 0.17'), TTx('PERNAMBUCO', tags={'atm', 'BRL'}, meta={'foreign-amount': '100.00'})),
 ]  # fmt: skip
 
 
-@pytest.mark.parametrize('scenario', CLEANER_SCENARIOS)
+@pytest.mark.parametrize(('in_tx', 'out_tx'), CLEANER_SCENARIOS)
 class TestAibTxnCleanup:
     """Basic tests for the AIB_EXTRACTORS."""
 
-    date = datetime.date(2510, 7, 9)
-
-    # TODO: reuse the code from beancount_tx_cleanup.cleanup_test.TestCleanerFunctionality.test_cleaning
-    #       or retire this entire class in favour of a completeness check in the regression test.
-    def test_payee_mangling(self, scenario):
+    def test_payee_mangling(self, in_tx, out_tx):
         """Test different scenarios of payee cleanup.
 
         NOTE: you need a full regression test in addition to CLEANER_SCENARIOS above.
         """
-        extractors = deepcopy(AIB_EXTRACTORS)
-        tx = Tx(
-            self.date,
-            scenario.input_payee,
-            tags=scenario.input_tags,
-            meta=scenario.input_meta,
-        )
-        clean_tx = Tx(
-            self.date,
-            scenario.payee,
-            tags=scenario.tags,
-            meta=scenario.meta,
-        )
-        assert clean_tx == TxnPayeeCleanup(
-            tx,
-            extractors,
-            preserveOriginalIn=None,
-        )
+        assert out_tx == TxnPayeeCleanup(in_tx, deepcopy(AIB_EXTRACTORS))
