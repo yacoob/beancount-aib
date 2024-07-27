@@ -25,18 +25,3 @@ packages = ["beancount_aib"]
 [tool.rye]
 managed = true
 dev-dependencies = []
-
-## extra tooling
-#
-
-[tool.coverage.report]
-show_missing = true
-
-[tool.coverage.run]
-branch = true
-source = ['beancount_aib']
-omit = ['**/*_test.py']
-
-[tool.pytest.ini_options]
-console_output_style = 'classic'
-addopts = '--cov --no-cov-on-fail'
