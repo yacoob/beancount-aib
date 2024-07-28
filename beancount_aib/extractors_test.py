@@ -7,10 +7,10 @@ import pytest
 from beancount.core.data import Transaction
 from beancount_aib.extractors import AIB_EXTRACTORS
 from beancount_tx_cleanup.cleaner import TxnPayeeCleanup
-from beancount_tx_cleanup.cleaner_test import TestTxMaker
+from beancount_tx_cleanup.cleaner_test import make_test_transaction_factory
 
 TESTDATE = datetime.date(2510, 7, 9)
-TTx = TestTxMaker(TESTDATE)
+TTx = make_test_transaction_factory(TESTDATE)
 
 # TODO: add more of these once AIB_EXTRACTORS is cleaned of stale rules
 CLEANER_SCENARIOS: list[tuple[Transaction, Transaction]] = [
