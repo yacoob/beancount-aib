@@ -195,7 +195,7 @@ class Importer(ImporterProtocol):
                 }
         return entries, last_balance
 
-    def extract(self, file, existing_entries: Entries) -> Entries:
+    def extract(self, file, existing_entries: Entries | None) -> Entries:
         """Turn file into Entries, consulting existing_entries as a reference; part of ImporterProtocol."""
         if not self.identify(file):
             return []
@@ -205,7 +205,7 @@ class Importer(ImporterProtocol):
         entries.sort(key=lambda x: x.date)
 
         # use existing_entries to reduce the amount of extracted transactions:
-        if self.cutoff_point is not None:
+        if self.cutoff_point is not None and existing_entries is not None:
             # - find out latest existing transaction for the self.importer_account
             latest_date = None
             for entry in reversed(existing_entries):
