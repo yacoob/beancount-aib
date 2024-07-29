@@ -83,7 +83,9 @@ class Importer(ImporterProtocol):
         """
         self.importer_account = self.default_account
         self.account_map = account_map
-        self.extractors = extractors or deepcopy(AIB_EXTRACTORS)
+        if extractors is None:
+            extractors = deepcopy(AIB_EXTRACTORS)
+        self.extractors = extractors
         self.cutoff_point = None
         if cutoff_days is not None:
             self.cutoff_point = datetime.timedelta(days=cutoff_days)
@@ -160,7 +162,7 @@ class Importer(ImporterProtocol):
             # the currency and foreign amount are present in the description.
             if (c := row.get('Local Currency', self.currency)) != self.currency:
                 tags.add(c.lower())
-                meta['foreign-amount'] = row['Local Currency Amount']
+                meta['foreign-amount'] = row['Local Currency Amount'].strip()
 
             # create a new Transaction, with a single Posting for the account we're processing
             txn = Tx(
@@ -195,7 +197,7 @@ class Importer(ImporterProtocol):
                 }
         return entries, last_balance
 
-    def extract(self, file, existing_entries: Entries | None) -> Entries:
+    def extract(self, file, existing_entries: Entries | None = None) -> Entries:
         """Turn file into Entries, consulting existing_entries as a reference; part of ImporterProtocol."""
         if not self.identify(file):
             return []

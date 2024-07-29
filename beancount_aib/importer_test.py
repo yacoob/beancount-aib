@@ -5,7 +5,9 @@ from io import StringIO
 from typing import ClassVar
 
 import pytest
+from beancount.core.data import Balance, Transaction
 from beancount_aib.importer import Importer, LineNoDictReader
+from beancount_tx_cleanup.cleaner import Extractors
 from beancount_tx_cleanup.helpers import Bal, Post, Tx
 
 
@@ -116,6 +118,39 @@ class TestImporter:
     account_map: ClassVar[dict[str, str]] = {'111': 'Assets:AIB:Secret'}
     importer = Importer(account_map)
 
+    @staticmethod
+    def T(
+        n: int,
+        p: str,
+        a: str,
+        m: dict[str, str] | None = None,
+        t: set[str] | None = None,
+    ) -> Transaction:
+        """Transaction-maker helper."""
+        m = m or {}
+        t = t or set()
+        return Tx(
+            datetime.date(2063, 1, n),
+            p,
+            postings=[Post('Assets:AIB:Secret', amount=a)],
+            meta={
+                'filename': '<string-backed file>',
+                'lineno': n + 1,
+                **m,
+            },
+            tags=t,
+        )
+
+    @staticmethod
+    def B(n, a) -> Balance:
+        """Balance-maker helper."""
+        return Bal(
+            'Assets:AIB:Secret',
+            a,
+            datetime.date(2063, 1, n),
+            meta={'filename': '<string-backed file>', 'lineno': n},
+        )
+
     @pytest.mark.filecontents("""
     absolutely: not a csv file
     more: 42
@@ -128,19 +163,71 @@ class TestImporter:
             == self.importer.default_account
         )
         assert self.importer.extract(input_memo, []) == []
-        # TODO: check extractor usage here too?
 
     @pytest.mark.filecontents("""
-    Posted Account, Posted Transactions Date, Description1
-    "111", "01/01/2063", "nuts and bolts"
-    "111", "02/01/2063", "croissants"
-    "111", "03/01/2063", "twenty feet of pure white snow
+    Posted Account, Posted Transactions Date, Description1, Description2, Description3, Debit Amount, Credit Amount,Balance,Posted Currency,Transaction Type,Local Currency Amount,Local Currency
+    "111","01/01/2063","Nuts and Bolts","Limited","","23.50",,"126.50",EUR,"Debit","23.50",EUR
+    "111","02/01/2063","VDP-Croissants","","","10.00",,"116.50",EUR,"Debit","10.00",EUR
+    "111","03/01/2063","twenty feet of pure","white snow","",,"200.00","316.50",EUR,"Credit","200.00",EUR
     """)
-    def test_valid_file(self, input_memo):  # noqa: D102
+    def test_current_account(self, input_memo):  # noqa: D102
         assert self.importer.identify(input_memo)
         assert self.importer.file_date(input_memo) == datetime.date(2063, 1, 3)
         assert self.importer.file_account(input_memo) == self.account_map['111']
-        # TODO: check extract() result and extractor usage here too?
+        assert self.importer.extract(input_memo, []) == [
+            self.T(1, 'Nuts and Bolts Limited', '-23.50'),
+            self.T(
+                2,
+                'Croissants',
+                '-10.00',
+                {'original-payee': 'VDP-Croissants'},
+                {'point-of-sale'},
+            ),
+            self.T(3, 'twenty feet of pure white snow', '200.00'),
+            self.B(4, '316.50'),
+        ]
+
+    @pytest.mark.filecontents("""
+    Masked Card Number, Posted Transactions Date, Description, Debit Amount, Credit Amount, Posted Currency, Transaction Type, Local Currency Amount, Local Currency
+    "111","01/01/2063","Bagel Factory", "21.02 ","  ","GBP","Debit"," 17.56 ","GBP"
+    "111","02/01/2063","FreeNow", "16.80","  ","EUR","Debit"," 16.8 ","EUR"
+    "111","03/01/2063","twenty feet of pure white snow","0.00 "," 1310.00 ","EUR","Credit"," 1310.0","EUR"
+    """)
+    def test_cc_acount(self, input_memo):  # noqa: D102
+        assert self.importer.identify(input_memo)
+        assert self.importer.file_date(input_memo) == datetime.date(2063, 1, 3)
+        assert self.importer.file_account(input_memo) == self.account_map['111']
+        assert self.importer.extract(input_memo, []) == [
+            self.T(
+                1,
+                'Bagel Factory',
+                '-21.02',
+                m={'foreign-amount': '17.56'},
+                t={'gbp'},
+            ),
+            self.T(2, 'FreeNow', '-16.80'),
+            self.T(3, 'twenty feet of pure white snow', '1310.00'),
+        ]
+
+    @pytest.mark.filecontents("""
+    Masked Card Number, Posted Transactions Date, Description, Debit Amount, Credit Amount, Posted Currency, Transaction Type, Local Currency Amount, Local Currency
+    "111","01/01/2063","Bagel Factory", "21.02 ","  ","GBP","Debit"," 17.56 ","GBP"
+    """)
+    def test_cc_with_no_extractors(self, input_memo):
+        """Parse a cc export, but without any Extractors."""
+        importer = Importer(self.account_map, Extractors())
+        assert importer.identify(input_memo)
+        assert importer.file_date(input_memo) == datetime.date(2063, 1, 1)
+        assert importer.file_account(input_memo) == self.account_map['111']
+        assert importer.extract(input_memo, []) == [
+            self.T(
+                1,
+                'Bagel Factory',
+                '-21.02',
+                m={'foreign-amount': '17.56'},
+                t={'gbp'},
+            ),
+        ]
 
     @pytest.mark.filecontents("""
     111,x,y
@@ -151,6 +238,12 @@ class TestImporter:
     """)
     def test_multiple_accounts_file(self, input_memo):  # noqa: D102
         assert not self.importer.identify(input_memo)
+        assert self.importer.file_date(input_memo) is None
+        assert (
+            self.importer.file_account(input_memo)
+            == self.importer.default_account
+        )
+        assert self.importer.extract(input_memo) == []
 
     @pytest.mark.filecontents("""
     999,x,y
@@ -161,6 +254,12 @@ class TestImporter:
     """)
     def test_account_not_in_map(self, input_memo):  # noqa: D102
         assert not self.importer.identify(input_memo)
+        assert self.importer.file_date(input_memo) is None
+        assert (
+            self.importer.file_account(input_memo)
+            == self.importer.default_account
+        )
+        assert self.importer.extract(input_memo) == []
 
 
 @pytest.mark.filecontents("""
