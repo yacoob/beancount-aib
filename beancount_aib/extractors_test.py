@@ -23,6 +23,8 @@ CLEANER_SCENARIOS: list[tuple[Transaction, Transaction]] = [
     (TTx('VDP-PAYPAL *EVIL'), TTx('EVIL', tags={'point-of-sale'}, meta={'payment-processor': 'paypal'})),
     (TTx('VDC-SUMUP PASTRY'), TTx('PASTRY', tags={'contactless'}, meta={'payment-processor': 'sumup'})),
     (TTx('VDA-PERNAMBUCO 100.00 BRL@ 0.17'), TTx('PERNAMBUCO', tags={'atm', 'BRL'}, meta={'foreign-amount': '100.00'})),
+    (TTx('VDC-DUNNES DOGHN'), TTx('Dunnes', tags={'contactless'}, meta={'location': 'doghn'})),
+    (TTx('AMAZON.CO.UK Tasty Cake'), TTx('Amazon.co.uk Tasty Cake')),
 ]  # fmt: skip
 
 
