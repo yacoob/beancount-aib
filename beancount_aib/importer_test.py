@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import pytest
 from beancount.core.data import Balance, Transaction
-from beancount_aib.importer import Importer, LineNoDictReader
+from beancount_aib.importer import Importer, LineNoDictReader, csv2rowlist
 from beancount_tx_cleanup.cleaner import Extractors
 from beancount_tx_cleanup.helpers import Bal, Post, Tx
 
@@ -29,7 +29,8 @@ class StringMemo:
         return self.backing_string
 
 
-def test_StringMemo():  # noqa: D103
+def test_StringMemo():
+    """Test the StringMemo class."""
     c = '\n'.join(['looks,like,csv,file,no?', '1,2,3,4,5'])
     s = StringMemo(c)
     assert s.mimetype() == 'text/csv'
@@ -67,15 +68,18 @@ def input_memo(filecontents):
     return StringMemo(filecontents)
 
 
-@pytest.mark.filecontents("""
+class TestLineNoDictReader:
+    """Tests related to LineNoDictReader."""
+
+    FILECONTENTS = """
 lead,support,support2,support3
 Picard,Data,Worf,Troi
 Mal,Zoe,Kaylee,Wash
 Abed,Troy,Britta,Shirley
 Bojack,Diane,Princess Carolyn,Todd
-""")
-def testLineNoDictReader(input_file):  # noqa: D103
-    assert list(LineNoDictReader(input_file)) == [
+"""
+
+    PARSED_DICTS: ClassVar[list[dict[str, str | int]]] = [
         {
             '__lineno': 2,
             'lead': 'Picard',
@@ -105,6 +109,16 @@ def testLineNoDictReader(input_file):  # noqa: D103
             'support3': 'Todd',
         },
     ]
+
+    @pytest.mark.filecontents(FILECONTENTS)
+    def testLineNoDictReader(self, input_file):
+        """Test reading CSV file into a dict with linenumber information."""
+        assert list(LineNoDictReader(input_file)) == self.PARSED_DICTS
+
+    @pytest.mark.filecontents(FILECONTENTS)
+    def test_csv2rowlist(self, input_memo):
+        """Test reading CSV files via csv2rowlist."""
+        assert csv2rowlist(input_memo) == self.PARSED_DICTS
 
 
 class TestImporter:
@@ -155,7 +169,8 @@ class TestImporter:
     absolutely: not a csv file
     more: 42
     """)
-    def test_not_a_csv_file(self, input_memo):  # noqa: D102
+    def test_not_a_csv_file(self, input_memo):
+        """Importer should not be able to parse a non-CSV file."""
         assert not self.importer.identify(input_memo)
         assert self.importer.file_date(input_memo) is None
         assert (
@@ -170,7 +185,8 @@ class TestImporter:
     "111","02/01/2063","VDP-Croissants","","","10.00",,"116.50",EUR,"Debit","10.00",EUR
     "111","03/01/2063","twenty feet of pure","white snow","",,"200.00","316.50",EUR,"Credit","200.00",EUR
     """)
-    def test_current_account(self, input_memo):  # noqa: D102
+    def test_current_account(self, input_memo):
+        """Test parsing a CSV export from a current account."""
         assert self.importer.identify(input_memo)
         assert self.importer.file_date(input_memo) == datetime.date(2063, 1, 3)
         assert self.importer.file_account(input_memo) == self.account_map['111']
@@ -193,7 +209,8 @@ class TestImporter:
     "111","02/01/2063","FreeNow", "16.80","  ","EUR","Debit"," 16.8 ","EUR"
     "111","03/01/2063","twenty feet of pure white snow","0.00 "," 1310.00 ","EUR","Credit"," 1310.0","EUR"
     """)
-    def test_cc_acount(self, input_memo):  # noqa: D102
+    def test_cc_acount(self, input_memo):
+        """Test parsing a CSV export from a credit card account."""
         assert self.importer.identify(input_memo)
         assert self.importer.file_date(input_memo) == datetime.date(2063, 1, 3)
         assert self.importer.file_account(input_memo) == self.account_map['111']
@@ -214,7 +231,7 @@ class TestImporter:
     "111","01/01/2063","Bagel Factory", "21.02 ","  ","GBP","Debit"," 17.56 ","GBP"
     """)
     def test_cc_with_no_extractors(self, input_memo):
-        """Parse a cc export, but without any Extractors."""
+        """Parse a cc export, but with an empty Extractor list."""
         importer = Importer(self.account_map, Extractors())
         assert importer.identify(input_memo)
         assert importer.file_date(input_memo) == datetime.date(2063, 1, 1)
@@ -236,7 +253,8 @@ class TestImporter:
     999,e,f
     111,g,h
     """)
-    def test_multiple_accounts_file(self, input_memo):  # noqa: D102
+    def test_multiple_accounts_file(self, input_memo):
+        """Importer doesn't handle a CSV file containing transactions for multiple accounts."""
         assert not self.importer.identify(input_memo)
         assert self.importer.file_date(input_memo) is None
         assert (
@@ -252,7 +270,8 @@ class TestImporter:
     999,e,f
     999,g,h
     """)
-    def test_account_not_in_map(self, input_memo):  # noqa: D102
+    def test_account_not_in_map(self, input_memo):
+        """Importer doesn't handle accounts that are not configured via account_map."""
         assert not self.importer.identify(input_memo)
         assert self.importer.file_date(input_memo) is None
         assert (
@@ -273,37 +292,48 @@ Posted Account, Posted Transactions Date, Description1, Description2, Descriptio
 class TestImporterCutoff:
     """These tests excercise culling in situations where the imported txs overlap with the existing ones.
 
-    Beancount dedupes those further down the import pipeline, but that
-    still leaves them visible in the fava import interface.
-
     All of the tests in TestImporterCutoff use the file content from
-    the filecontents mark on the class itself.
+    the filecontents mark on the class itself. An empty list of Extractors
+    is explicitly provided to the cleaner, as we don't really care about
+    the Extractors' transformations in this test.
     """
 
-    account_name = 'Assets:AIB:Secret'
-    account_map: ClassVar[dict[str, str]] = {'111': account_name}
+    ACCOUNT_NAME = 'Assets:AIB:Secret'
+    ACCOUNT_MAP: ClassVar[dict[str, str]] = {'111': ACCOUNT_NAME}
+    FULL_IMPORT_DIRECTIVE_LENGTH = 6  # 5 txs + balance directive
 
     @pytest.fixture
     def existing_entries(self):
         """Provide a set of existing txs. Modify as needed in each test."""
         return [
-            Tx(datetime.date(2063, 1, 1), 'nine golden rings', postings=[Post(self.account_name, amount='9.99')]),
-            Tx(datetime.date(2063, 1, 2), 'ring wraith costume', postings=[Post(self.account_name, amount='200.00')]),
-            Tx(datetime.date(2063, 1, 3), 'stick horse', postings=[Post(self.account_name, amount='300.00')]),
-            Bal(self.account_name, '700', datetime.date(2063, 1, 4)),
+            Tx(datetime.date(2063, 1, 1), 'nine golden rings', postings=[Post(self.ACCOUNT_NAME, amount='9.99')]),
+            Tx(datetime.date(2063, 1, 2), 'ring wraith costume', postings=[Post(self.ACCOUNT_NAME, amount='200.00')]),
+            Tx(datetime.date(2063, 1, 3), 'stick horse', postings=[Post(self.ACCOUNT_NAME, amount='300.00')]),
+            Bal(self.ACCOUNT_NAME, '700', datetime.date(2063, 1, 4)),
         ]  # fmt: skip
 
     def test_cutoff_zero(self, input_memo, existing_entries):
         """Remove txs older than the oldest existing tx for the account in question."""
-        txs = Importer(self.account_map, cutoff_days=0).extract(input_memo, existing_entries)  # fmt: skip
-        assert len(txs) == 4  # noqa: PLR2004
+        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=0).extract(input_memo, existing_entries)  # fmt: skip
+        assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH - 2
         assert txs[0].date == datetime.date(2063, 1, 3)
         assert txs[-1].date == datetime.date(2063, 1, 6)
 
+    def test_cutoff_none(self, input_memo, existing_entries):
+        """No culling."""
+        txs = Importer(self.ACCOUNT_MAP, Extractors()).extract(
+            input_memo,
+            existing_entries,
+        )
+        assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH
+
     def test_no_existing_txs(self, input_memo):
         """No existing txs -> no culling."""
-        txs = Importer(self.account_map, cutoff_days=1).extract(input_memo, [])
-        assert len(txs) == 6  # noqa: PLR2004
+        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(
+            input_memo,
+            [],
+        )
+        assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH
         assert txs[0].date == datetime.date(2063, 1, 1)
         assert txs[-1].date == datetime.date(2063, 1, 6)
 
@@ -314,9 +344,7 @@ class TestImporterCutoff:
     ):
         """Same as test_cutoff_zero, but cutoff_days is greater, and the existing set contains txs for multiple accounts."""
         existing_entries[2] = Tx(datetime.date(2063, 1, 2), 'stick horse', postings=[Post('Assets:SFB:Secret', amount='300.00')])  # fmt: skip
-        txs = Importer(self.account_map, cutoff_days=1).extract(input_memo, existing_entries)  # fmt: skip
-        assert len(txs) == 6  # noqa: PLR2004
+        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(input_memo, existing_entries)  # fmt: skip
+        assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH
         assert txs[0].date == datetime.date(2063, 1, 1)
         assert txs[-1].date == datetime.date(2063, 1, 6)
-
-    # TODO: add a test for cutoff_days=None

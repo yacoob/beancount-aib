@@ -207,6 +207,9 @@ class Importer(ImporterProtocol):
         entries.sort(key=lambda x: x.date)
 
         # use existing_entries to reduce the amount of extracted transactions:
+        # Beancount dedupes those further down the import pipeline, but that
+        # still leaves them visible in the fava import interface.
+
         if self.cutoff_point is not None and existing_entries is not None:
             # - find out latest existing transaction for the self.importer_account
             latest_date = None
