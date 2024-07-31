@@ -1,7 +1,7 @@
 [run]
 branch = true
 include = beancount_aib/*.py
-omit = */*_test.py
+omit = */*_test.py, beancount_aib/importer_hook.py
 
 [report]
 show_missing = true
