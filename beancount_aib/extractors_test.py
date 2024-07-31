@@ -8,7 +8,7 @@ from beancount.core.data import Transaction
 
 from beancount_aib.extractors import AIB_EXTRACTORS
 from beancount_tx_cleanup.cleaner import TxnPayeeCleanup
-from beancount_tx_cleanup.cleaner_test import make_test_transaction_factory
+from beancount_tx_cleanup.utils import make_test_transaction_factory
 
 TESTDATE = datetime.date(2510, 7, 9)
 TTx = make_test_transaction_factory(TESTDATE)
