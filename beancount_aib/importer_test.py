@@ -6,6 +6,7 @@ from typing import ClassVar
 
 import pytest
 from beancount.core.data import Balance, Transaction
+
 from beancount_aib.importer import Importer, LineNoDictReader, csv2rowlist
 from beancount_tx_cleanup.cleaner import Extractors
 from beancount_tx_cleanup.helpers import Bal, Post, Tx

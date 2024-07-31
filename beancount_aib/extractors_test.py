@@ -5,6 +5,7 @@ from copy import deepcopy
 
 import pytest
 from beancount.core.data import Transaction
+
 from beancount_aib.extractors import AIB_EXTRACTORS
 from beancount_tx_cleanup.cleaner import TxnPayeeCleanup
 from beancount_tx_cleanup.cleaner_test import make_test_transaction_factory
