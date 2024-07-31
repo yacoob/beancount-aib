@@ -1,0 +1,43 @@
+fix = false
+line-length = 80
+
+[format]
+quote-style = 'single'
+docstring-code-format = true
+docstring-code-line-length = 80
+
+[lint]
+extend-select = [
+  "A",
+  "ARG",
+  "B",
+  "C",
+  "C4",
+  "COM",
+  "D",
+  "EXE",
+  "FBT",
+  "FURB",
+  "I",
+  "ICN",
+  "ISC",
+  "PERF",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "PT",
+  "RET",
+  "RUF",
+  "SIM",
+  "SLF",
+  "UP",
+  "W",
+]
+
+[lint.isort]
+known-first-party = ["beancount_aib", "beancount_tx_cleanup"]
+
+[lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = true

@@ -1,0 +1,8 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "verboseOutput": true,
+  "typeCheckingMode": "standard",
+  "reportMissingTypeStubs": false,
+  "pythonVersion": "3.10"
+}
