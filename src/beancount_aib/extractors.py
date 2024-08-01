@@ -111,17 +111,22 @@ _e += [
         P(lambda m: r'Amazon' + m.group(2).lower() + m.group(4)),
     ),
     E(
-        'Amazon transactions 1/4.',
+        'Amazon transactions 2/5.',
+        r'(?i)^www.amazon (.*)',
+        P('Amazon'),
+    ),
+    E(
+        'Amazon transactions 3/5.',
         r'(?i)^amazon prime.*',
         P('Amazon Prime'),
     ),
     E(
-        'Amazon transactions 1/4.',
+        'Amazon transactions 4/5.',
         r'(?i)^amazon [\d-]+',
         P('Amazon'),
     ),
     E(
-        'Amazon transactions 1/4.',
+        'Amazon transactions 5/5.',
         r'(?i)^(amazon[^*]+)\*.*',
         P(r'\g<1>'),
     ),
