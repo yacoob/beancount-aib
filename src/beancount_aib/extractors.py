@@ -130,7 +130,7 @@ _e += [
 SHORT_NAME_LENGTH = 3
 _e += E(
     'Handle branch/location information.',
-    r'(?i)^(applegreen|boi|centra|circle k|dunnes|eurospar|gamestop|mcdonalds|michie sushi|pablo picante|park rite|penneys|pizza hut|polonez|spar|starbucks|supervalu|topaz|ubl|ulster bank|wh smith|zabka) +(.+)$',
+    r'(?i)^(applegreen|boi|burger king|camile thai|centra|circle k|dunnes|eurospar|gamestop|mace|mcdonalds|michie sushi|pablo picante|park rite|penneys|pizza hut|polonez|spar|starbucks|supervalu|topaz|ubl|ulster bank|wh smith|zabka) +(.+)$',
     [
         M('location', v=r'\2', transformer=lambda s: s.lower()),
         P(
