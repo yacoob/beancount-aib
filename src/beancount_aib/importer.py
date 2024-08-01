@@ -212,15 +212,20 @@ class Importer(ImporterProtocol):
         # still leaves them visible in the fava import interface.
 
         if self.cutoff_point is not None and existing_entries is not None:
-            # - find out latest existing transaction for the self.importer_account
+            # find out latest existing transaction not flagged '!' for the self.importer_account
             latest_date = None
             for entry in reversed(existing_entries):
-                if type(entry) is Transaction and any(
+                if not isinstance(entry, Transaction):
+                    continue
+                if entry.flag == '!':
+                    continue
+                if any(
                     p.account == self.importer_account for p in entry.postings
                 ):
                     latest_date = entry.date
                     break
-            # - remove all entries happening earlier than self.overlap_days before that
+
+            # remove all entries happening earlier than self.overlap_days before that
             if latest_date:
                 entries = [
                     e

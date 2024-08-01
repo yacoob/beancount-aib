@@ -306,12 +306,24 @@ class TestImporterCutoff:
     @pytest.fixture
     def existing_entries(self):
         """Provide a set of existing txs. Modify as needed in each test."""
+
+        def d(day):
+            return datetime.date(2063, 1, day)
+
         return [
-            Tx(datetime.date(2063, 1, 1), 'nine golden rings', postings=[Post(self.ACCOUNT_NAME, amount='9.99')]),
-            Tx(datetime.date(2063, 1, 2), 'ring wraith costume', postings=[Post(self.ACCOUNT_NAME, amount='200.00')]),
-            Tx(datetime.date(2063, 1, 3), 'stick horse', postings=[Post(self.ACCOUNT_NAME, amount='300.00')]),
+            Tx(d(1), 'nine golden rings', flag='*', postings=[Post(self.ACCOUNT_NAME, amount='-9.99')]),
+            Tx(d(2), 'ring wraith costume', flag='*', postings=[Post(self.ACCOUNT_NAME, amount='-200.00')]),
+            Tx(d(2), 'Nazgul meetup', flag='!', postings=[Post('Assets:Cash', amount='-20.00')]),
+            Tx(d(3), 'stick horse', flag='*', postings=[Post(self.ACCOUNT_NAME, amount='-300.00')]),
             Bal(self.ACCOUNT_NAME, '700', datetime.date(2063, 1, 4)),
         ]  # fmt: skip
+
+    def test_cutoff_nonzero(self, input_memo, existing_entries):
+        """Remove txs older than one day before oldest existing tx for the account in question."""
+        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(input_memo, existing_entries)  # fmt: skip
+        assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH - 1
+        assert txs[0].date == datetime.date(2063, 1, 2)
+        assert txs[-1].date == datetime.date(2063, 1, 6)
 
     def test_cutoff_zero(self, input_memo, existing_entries):
         """Remove txs older than the oldest existing tx for the account in question."""
@@ -343,9 +355,9 @@ class TestImporterCutoff:
         input_memo,
         existing_entries,
     ):
-        """Same as test_cutoff_zero, but cutoff_days is greater, and the existing set contains txs for multiple accounts."""
-        existing_entries[2] = Tx(datetime.date(2063, 1, 2), 'stick horse', postings=[Post('Assets:SFB:Secret', amount='300.00')])  # fmt: skip
+        """Same as test_cutoff_nonzero, but the existing set contains txs for multiple accounts."""
+        existing_entries[2] = Tx(datetime.date(2063, 1, 2), 'stick horse', flag='*',postings=[Post('Assets:SFB:Secret', amount='-300.00')])  # fmt: skip
         txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(input_memo, existing_entries)  # fmt: skip
-        assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH
-        assert txs[0].date == datetime.date(2063, 1, 1)
+        assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH - 1
+        assert txs[0].date == datetime.date(2063, 1, 2)
         assert txs[-1].date == datetime.date(2063, 1, 6)
