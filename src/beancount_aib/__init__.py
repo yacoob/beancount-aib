@@ -1,0 +1,1 @@
+"""Beancount AIB bank importer."""

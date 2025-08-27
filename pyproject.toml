@@ -1,24 +1,20 @@
 [project]
 name = "beancount-aib"
-version = "0.1.0"
+version = "0.1.1"
 description = "Beancount importer for CSVs exported by AIB"
+readme = "README.md"
 authors = [{ name = "Jakub Turski", email = "yacoob@ftml.net" }]
 dependencies = ["beancount ~=2.3", "beancount-tx-cleanup ~=0.1"]
-readme = "README.md"
-requires-python = "~=3.10"
-classifiers = ["Private :: Do Not Upload"]
+requires-python = ">=3.11"
+
+[project.urls]
+Repository = "https://github.com/yacoob/beancount-aib"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.8.13,<0.9.0"]
+build-backend = "uv_build"
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/beancount_aib"]
-
-[tool.rye]
+[tool.uv]
 managed = true
 dev-dependencies = [
   "basedpyright~=1.15.1",
@@ -26,3 +22,10 @@ dev-dependencies = [
   "pytest~=8.2",
   "pytest-cov~=5.0",
 ]
+
+[tool.ruff.format]
+quote-style = 'single'
+
+[tool.pyright]
+venvPath = '.'
+venv = ".venv"
