@@ -2,13 +2,15 @@
 
 import csv
 import datetime
+import mimetypes
 from copy import deepcopy
 from functools import cache
+from pathlib import Path
 from typing import Any
 
+from beancount.core import data
 from beancount.core.data import Entries, Transaction, new_metadata
-from beancount.ingest.cache import _FileMemo as FileMemo
-from beancount.ingest.importer import ImporterProtocol
+from beangulp import Importer as BeangulpImporter
 
 from beancount_aib.extractors import AIB_EXTRACTORS
 from beancount_tx_cleanup.cleaner import Extractors, TxnPayeeCleanup
@@ -20,7 +22,7 @@ from beancount_tx_cleanup.helpers import (
 
 
 class LineNoDictReader(csv.DictReader):
-    """LineNoDictReader is a csv.DictReader that adds a __lineno entry to parsed dict indicating position of the data that formed this dict in the source file."""
+    """LineNoDictReader is a csv.DictReader that adds a line number to the result dicts."""
 
     def __next__(self):  # noqa: D105
         d = super().__next__()
@@ -29,25 +31,19 @@ class LineNoDictReader(csv.DictReader):
 
 
 @cache
-def csv2rowlist(file) -> list[dict]:
-    """Cacheable file reader.
-
-    Caching Importer.read(self, file) causes cache key to include
-    Importer instance, which is a memory leak recipe.
-
-    """
-    return list(
-        LineNoDictReader(file.contents().split('\n'), skipinitialspace=True),
-    )
+def csv2rowlist(filepath: str) -> list[dict]:
+    """csv2rowlist reads a CSV file from filepath and returns a list of dicts."""
+    with open(filepath, encoding='UTF-8') as f:
+        return list(LineNoDictReader(f, skipinitialspace=True))
 
 
-class Importer(ImporterProtocol):
-    """Parser for AIB CSVs adhering to beancount.ingest.importer.ImporterProtocol.
+class Importer(BeangulpImporter):
+    """Parser for AIB CSVs adhering to beangulp.Importer interface.
 
-    https://github.com/beancount/beancount/blob/v2/beancount/ingest/importer.py
+    https://github.com/beancount/beangulp
 
-    NOTE: all methods that return data (eg. `file_account` or `extract`)
-    should always `self.identify(file)` first, as there's no guarantee
+    NOTE: all methods that return data (eg. `account` or `extract`)
+    should always `self.identify(filepath)` first, as there's no guarantee
     that `self.importer_account` is up to date. Fava session might go like this:
     ```
     - identify(file1)
@@ -59,7 +55,7 @@ class Importer(ImporterProtocol):
     - [import happens with the value of `self.importer_account` set
       via `account(file2)` :| ]
     ```
-    We might cache the account name per `file` provided, but we're then exposed
+    We might cache the account name per `filepath` provided, but we're then exposed
     to a situation where the file content will change without us realizing...
     Those CSV files are small, let's throw CPU at the problem :D
     """
@@ -76,7 +72,7 @@ class Importer(ImporterProtocol):
         extractors: Extractors | None = None,
         cutoff_days: int | None = None,
     ):
-        """Create new Importer instance, part of ImporterProtocol.
+        """Create new Importer instance.
 
         - account_map maps account names present in the CSV file to account names used by beancount
         - if set, `cutoff_days` will drop all incoming transactions older than latest existing
@@ -91,20 +87,24 @@ class Importer(ImporterProtocol):
         if cutoff_days is not None:
             self.cutoff_point = datetime.timedelta(days=cutoff_days)
 
-    @staticmethod
-    def read(file) -> list[dict]:  # noqa: D102
-        return csv2rowlist(file)
-
-    def identify(self, file: FileMemo) -> bool:
-        """Verify whether Importer can handle given file; part of ImporterProtocol."""
+    def identify(self, filepath: str) -> bool:
+        """Verify whether Importer can handle given file."""
         # does this file contain an actual csv content?
-        if file.mimetype() != 'text/csv':
+        mime_type, _ = mimetypes.guess_type(filepath)
+        if mime_type != 'text/csv':
             return False
         # each row specifies account in the first field; check if it's the same across the whole file
-        rows = self.read(file)
+        try:
+            rows = csv2rowlist(filepath)
+        except (OSError, csv.Error):
+            return False
+        if not rows:
+            return False
         first_line_account = next(iter(rows[0].values()))
         if any(first_line_account != next(iter(row.values())) for row in rows):
-            print(f'{file.name} contains transactions for multiple accounts')
+            print(
+                f'{Path(filepath).name} contains transactions for multiple accounts',
+            )
             return False
         # check if this account is in the provided account map
         self.importer_account = self.account_map.get(
@@ -113,32 +113,32 @@ class Importer(ImporterProtocol):
         )
         return first_line_account in self.account_map
 
-    def file_date(self, file) -> datetime.date | None:
-        """Return the date of the last transaction in the file; part of ImporterProtocol.
+    def date(self, filepath: str) -> datetime.date | None:
+        """Return the date of the last transaction in the file.
 
         This date is treated as file's date, that is a date for which this file is representative.
         """
-        if self.identify(file):
-            last_row_date = self.read(file)[-1][
+        if self.identify(filepath):
+            last_row_date = csv2rowlist(filepath)[-1][
                 'Posted Transactions Date'
             ].strip()
             return datetime.datetime.strptime(last_row_date, '%d/%m/%Y').date()
         return None
 
-    def file_account(self, file) -> str:
-        """Return the name of the account whose transactions are present in the file; part of ImporterProtocol."""
-        if self.identify(file):
+    def account(self, filepath: str) -> data.Account:
+        """Return the name of the account whose transactions are present in the file."""
+        if self.identify(filepath):
             return self.importer_account
         return self.default_account
 
-    def _parse(self, file) -> tuple[Entries, dict[str, Any] | None]:
+    def _parse(self, filepath: str) -> tuple[Entries, dict[str, Any] | None]:
         """Read file, extract transactions."""
         entries: Entries = []
         last_balance: dict[str, Any] | None = None
-        for row in self.read(file):
+        for row in csv2rowlist(filepath):
             # grab values from the csv row
             tags = set()
-            meta = new_metadata(file.name, row['__lineno'])
+            meta = new_metadata(filepath, row['__lineno'])
             txdate = row['Posted Transactions Date'].strip()
             txdate = datetime.datetime.strptime(txdate, '%d/%m/%Y').date()
             if 'Description' in row:
@@ -172,7 +172,7 @@ class Importer(ImporterProtocol):
                 narration=self.default_narration,
                 flag=self.txflag,
                 meta=meta,
-                tags=tags,
+                tags=frozenset(tags),
                 postings=[
                     Post(
                         self.importer_account,
@@ -198,23 +198,23 @@ class Importer(ImporterProtocol):
                 }
         return entries, last_balance
 
-    def extract(self, file, existing_entries: Entries | None = None) -> Entries:
-        """Turn file into Entries, consulting existing_entries as a reference; part of ImporterProtocol."""
-        if not self.identify(file):
+    def extract(self, filepath: str, existing: Entries) -> Entries:
+        """Turn file into Entries, consulting existing entries as a reference."""
+        if not self.identify(filepath):
             return []
-        # parse the file conteint into a list of Directives, save last seen balance amount
-        entries, last_balance = self._parse(file)
+        # parse the file content into a list of Directives, save last seen balance amount
+        entries, last_balance = self._parse(filepath)
         # sort entries by transaction date
         entries.sort(key=lambda x: x.date)
 
-        # use existing_entries to reduce the amount of extracted transactions:
+        # use existing entries to reduce the amount of extracted transactions:
         # Beancount dedupes those further down the import pipeline, but that
         # still leaves them visible in the fava import interface.
 
-        if self.cutoff_point is not None and existing_entries is not None:
+        if self.cutoff_point is not None and existing:
             # find out latest existing transaction not flagged '!' for the self.importer_account
             latest_date = None
-            for entry in reversed(existing_entries):
+            for entry in reversed(existing):
                 if not isinstance(entry, Transaction):
                     continue
                 if entry.flag == '!':

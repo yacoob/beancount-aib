@@ -1,7 +1,9 @@
 """Tests for the importer itself."""
 
 import datetime
+import tempfile
 from io import StringIO
+from pathlib import Path
 from typing import ClassVar
 
 import pytest
@@ -10,38 +12,6 @@ from beancount.core.data import Balance, Transaction
 from beancount_aib.importer import Importer, LineNoDictReader, csv2rowlist
 from beancount_tx_cleanup.cleaner import Extractors
 from beancount_tx_cleanup.helpers import Bal, Post, Tx
-
-
-class StringMemo:
-    """StringMemo is the equivalent of beancount.ingest.cache._FileMemo backed by a string, instead of a temporary file."""
-
-    def __init__(self, contents: str):  # noqa: D107
-        self.backing_string: str = contents
-        self.name = '<string-backed file>'
-
-    def mimetype(self):  # noqa: D102
-        # this is a very rudimentary check, but it's sufficient for my usecase :P
-        return 'text/csv' if ',' in self.backing_string else 'text/plain'
-
-    def head(self, num_bytes=8192):  # noqa: D102
-        return self.backing_string[:num_bytes]
-
-    def contents(self):  # noqa: D102
-        return self.backing_string
-
-
-def test_StringMemo():
-    """Test the StringMemo class."""
-    c = '\n'.join(['looks,like,csv,file,no?', '1,2,3,4,5'])
-    s = StringMemo(c)
-    assert s.mimetype() == 'text/csv'
-    assert s.head() == c
-    assert s.contents() == c
-    c = 'a ' * 4095 + 'b ' + 'b ' * 4096
-    s = StringMemo(c)
-    assert s.mimetype() == 'text/plain'
-    assert s.head() == 'a ' * 4095 + 'b '
-    assert s.contents() == c
 
 
 @pytest.fixture
@@ -64,9 +34,11 @@ def input_file(filecontents):
 
 
 @pytest.fixture
-def input_memo(filecontents):
-    """Provide the filecontents mark as a FileMemo-like object, suitable to feed into a beancount Importer."""
-    return StringMemo(filecontents)
+def input_filepath(filecontents, tmp_path, request):
+    """Provide the filecontents mark as a temporary file path for beangulp importers."""
+    test_file = tmp_path / f"{request.node.name}.csv"
+    test_file.write_text(filecontents, encoding='UTF-8')
+    return str(test_file)
 
 
 class TestLineNoDictReader:
@@ -117,9 +89,9 @@ Bojack,Diane,Princess Carolyn,Todd
         assert list(LineNoDictReader(input_file)) == self.PARSED_DICTS
 
     @pytest.mark.filecontents(FILECONTENTS)
-    def test_csv2rowlist(self, input_memo):
+    def test_csv2rowlist(self, input_filepath):
         """Test reading CSV files via csv2rowlist."""
-        assert csv2rowlist(input_memo) == self.PARSED_DICTS
+        assert csv2rowlist(input_filepath) == self.PARSED_DICTS
 
 
 class TestImporter:
@@ -133,52 +105,55 @@ class TestImporter:
     account_map: ClassVar[dict[str, str]] = {'111': 'Assets:AIB:Secret'}
     importer = Importer(account_map)
 
-    @staticmethod
     def T(
+        self,
         n: int,
         p: str,
         a: str,
         m: dict[str, str] | None = None,
         t: set[str] | None = None,
+        filepath: str | None = None,
     ) -> Transaction:
         """Transaction-maker helper."""
         m = m or {}
         t = t or set()
+        # Use provided filepath or a placeholder for tests that don't pass it
+        filename = filepath if filepath else '<test-file>'
         return Tx(
             datetime.date(2063, 1, n),
             p,
             postings=[Post('Assets:AIB:Secret', amount=a)],
             meta={
-                'filename': '<string-backed file>',
+                'filename': filename,
                 'lineno': n + 1,
                 **m,
             },
-            tags=t,
+            tags=frozenset(t),
         )
 
-    @staticmethod
-    def B(n, a) -> Balance:
+    def B(self, n, a, filepath: str | None = None) -> Balance:
         """Balance-maker helper."""
+        filename = filepath if filepath else '<test-file>'
         return Bal(
             'Assets:AIB:Secret',
             a,
             datetime.date(2063, 1, n),
-            meta={'filename': '<string-backed file>', 'lineno': n},
+            meta={'filename': filename, 'lineno': n},
         )
 
     @pytest.mark.filecontents("""
     absolutely: not a csv file
     more: 42
     """)
-    def test_not_a_csv_file(self, input_memo):
+    def test_not_a_csv_file(self, input_filepath):
         """Importer should not be able to parse a non-CSV file."""
-        assert not self.importer.identify(input_memo)
-        assert self.importer.file_date(input_memo) is None
+        assert not self.importer.identify(input_filepath)
+        assert self.importer.date(input_filepath) is None
         assert (
-            self.importer.file_account(input_memo)
+            self.importer.account(input_filepath)
             == self.importer.default_account
         )
-        assert self.importer.extract(input_memo, []) == []
+        assert self.importer.extract(input_filepath, []) == []
 
     @pytest.mark.filecontents("""
     Posted Account, Posted Transactions Date, Description1, Description2, Description3, Debit Amount, Credit Amount,Balance,Posted Currency,Transaction Type,Local Currency Amount,Local Currency
@@ -186,22 +161,23 @@ class TestImporter:
     "111","02/01/2063","VDP-Croissants","","","10.00",,"116.50",EUR,"Debit","10.00",EUR
     "111","03/01/2063","twenty feet of pure","white snow","",,"200.00","316.50",EUR,"Credit","200.00",EUR
     """)
-    def test_current_account(self, input_memo):
+    def test_current_account(self, input_filepath):
         """Test parsing a CSV export from a current account."""
-        assert self.importer.identify(input_memo)
-        assert self.importer.file_date(input_memo) == datetime.date(2063, 1, 3)
-        assert self.importer.file_account(input_memo) == self.account_map['111']
-        assert self.importer.extract(input_memo, []) == [
-            self.T(1, 'Nuts and Bolts Limited', '-23.50'),
+        assert self.importer.identify(input_filepath)
+        assert self.importer.date(input_filepath) == datetime.date(2063, 1, 3)
+        assert self.importer.account(input_filepath) == self.account_map['111']
+        assert self.importer.extract(input_filepath, []) == [
+            self.T(1, 'Nuts and Bolts Limited', '-23.50', filepath=input_filepath),
             self.T(
                 2,
                 'Croissants',
                 '-10.00',
                 {'original-payee': 'VDP-Croissants'},
                 {'point-of-sale'},
+                filepath=input_filepath,
             ),
-            self.T(3, 'twenty feet of pure white snow', '200.00'),
-            self.B(4, '316.50'),
+            self.T(3, 'twenty feet of pure white snow', '200.00', filepath=input_filepath),
+            self.B(4, '316.50', filepath=input_filepath),
         ]
 
     @pytest.mark.filecontents("""
@@ -210,40 +186,42 @@ class TestImporter:
     "111","02/01/2063","FreeNow", "16.80","  ","EUR","Debit"," 16.8 ","EUR"
     "111","03/01/2063","twenty feet of pure white snow","0.00 "," 1310.00 ","EUR","Credit"," 1310.0","EUR"
     """)
-    def test_cc_acount(self, input_memo):
+    def test_cc_acount(self, input_filepath):
         """Test parsing a CSV export from a credit card account."""
-        assert self.importer.identify(input_memo)
-        assert self.importer.file_date(input_memo) == datetime.date(2063, 1, 3)
-        assert self.importer.file_account(input_memo) == self.account_map['111']
-        assert self.importer.extract(input_memo, []) == [
+        assert self.importer.identify(input_filepath)
+        assert self.importer.date(input_filepath) == datetime.date(2063, 1, 3)
+        assert self.importer.account(input_filepath) == self.account_map['111']
+        assert self.importer.extract(input_filepath, []) == [
             self.T(
                 1,
                 'Bagel Factory',
                 '-21.02',
                 m={'foreign-amount': '17.56'},
                 t={'gbp'},
+                filepath=input_filepath,
             ),
-            self.T(2, 'FreeNow', '-16.80'),
-            self.T(3, 'twenty feet of pure white snow', '1310.00'),
+            self.T(2, 'FreeNow', '-16.80', filepath=input_filepath),
+            self.T(3, 'twenty feet of pure white snow', '1310.00', filepath=input_filepath),
         ]
 
     @pytest.mark.filecontents("""
     Masked Card Number, Posted Transactions Date, Description, Debit Amount, Credit Amount, Posted Currency, Transaction Type, Local Currency Amount, Local Currency
     "111","01/01/2063","Bagel Factory", "21.02 ","  ","GBP","Debit"," 17.56 ","GBP"
     """)
-    def test_cc_with_no_extractors(self, input_memo):
+    def test_cc_with_no_extractors(self, input_filepath):
         """Parse a cc export, but with an empty Extractor list."""
         importer = Importer(self.account_map, Extractors())
-        assert importer.identify(input_memo)
-        assert importer.file_date(input_memo) == datetime.date(2063, 1, 1)
-        assert importer.file_account(input_memo) == self.account_map['111']
-        assert importer.extract(input_memo, []) == [
+        assert importer.identify(input_filepath)
+        assert importer.date(input_filepath) == datetime.date(2063, 1, 1)
+        assert importer.account(input_filepath) == self.account_map['111']
+        assert importer.extract(input_filepath, []) == [
             self.T(
                 1,
                 'Bagel Factory',
                 '-21.02',
                 m={'foreign-amount': '17.56'},
                 t={'gbp'},
+                filepath=input_filepath,
             ),
         ]
 
@@ -254,15 +232,15 @@ class TestImporter:
     999,e,f
     111,g,h
     """)
-    def test_multiple_accounts_file(self, input_memo):
+    def test_multiple_accounts_file(self, input_filepath):
         """Importer doesn't handle a CSV file containing transactions for multiple accounts."""
-        assert not self.importer.identify(input_memo)
-        assert self.importer.file_date(input_memo) is None
+        assert not self.importer.identify(input_filepath)
+        assert self.importer.date(input_filepath) is None
         assert (
-            self.importer.file_account(input_memo)
+            self.importer.account(input_filepath)
             == self.importer.default_account
         )
-        assert self.importer.extract(input_memo) == []
+        assert self.importer.extract(input_filepath, []) == []
 
     @pytest.mark.filecontents("""
     999,x,y
@@ -271,15 +249,15 @@ class TestImporter:
     999,e,f
     999,g,h
     """)
-    def test_account_not_in_map(self, input_memo):
+    def test_account_not_in_map(self, input_filepath):
         """Importer doesn't handle accounts that are not configured via account_map."""
-        assert not self.importer.identify(input_memo)
-        assert self.importer.file_date(input_memo) is None
+        assert not self.importer.identify(input_filepath)
+        assert self.importer.date(input_filepath) is None
         assert (
-            self.importer.file_account(input_memo)
+            self.importer.account(input_filepath)
             == self.importer.default_account
         )
-        assert self.importer.extract(input_memo) == []
+        assert self.importer.extract(input_filepath, []) == []
 
 
 @pytest.mark.filecontents("""
@@ -318,32 +296,32 @@ class TestImporterCutoff:
             Bal(self.ACCOUNT_NAME, '700', datetime.date(2063, 1, 4)),
         ]  # fmt: skip
 
-    def test_cutoff_nonzero(self, input_memo, existing_entries):
+    def test_cutoff_nonzero(self, input_filepath, existing_entries):
         """Remove txs older than one day before oldest existing tx for the account in question."""
-        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(input_memo, existing_entries)  # fmt: skip
+        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(input_filepath, existing_entries)  # fmt: skip
         assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH - 1
         assert txs[0].date == datetime.date(2063, 1, 2)
         assert txs[-1].date == datetime.date(2063, 1, 6)
 
-    def test_cutoff_zero(self, input_memo, existing_entries):
+    def test_cutoff_zero(self, input_filepath, existing_entries):
         """Remove txs older than the oldest existing tx for the account in question."""
-        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=0).extract(input_memo, existing_entries)  # fmt: skip
+        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=0).extract(input_filepath, existing_entries)  # fmt: skip
         assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH - 2
         assert txs[0].date == datetime.date(2063, 1, 3)
         assert txs[-1].date == datetime.date(2063, 1, 6)
 
-    def test_cutoff_none(self, input_memo, existing_entries):
+    def test_cutoff_none(self, input_filepath, existing_entries):
         """No culling."""
         txs = Importer(self.ACCOUNT_MAP, Extractors()).extract(
-            input_memo,
+            input_filepath,
             existing_entries,
         )
         assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH
 
-    def test_no_existing_txs(self, input_memo):
+    def test_no_existing_txs(self, input_filepath):
         """No existing txs -> no culling."""
         txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(
-            input_memo,
+            input_filepath,
             [],
         )
         assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH
@@ -352,12 +330,12 @@ class TestImporterCutoff:
 
     def test_existing_txs_have_different_accounts(
         self,
-        input_memo,
+        input_filepath,
         existing_entries,
     ):
         """Same as test_cutoff_nonzero, but the existing set contains txs for multiple accounts."""
         existing_entries[2] = Tx(datetime.date(2063, 1, 2), 'stick horse', flag='*',postings=[Post('Assets:SFB:Secret', amount='-300.00')])  # fmt: skip
-        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(input_memo, existing_entries)  # fmt: skip
+        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(input_filepath, existing_entries)  # fmt: skip
         assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH - 1
         assert txs[0].date == datetime.date(2063, 1, 2)
         assert txs[-1].date == datetime.date(2063, 1, 6)
