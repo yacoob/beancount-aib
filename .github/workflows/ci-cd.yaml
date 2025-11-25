@@ -28,7 +28,7 @@ jobs:
       - name: Run ruff check
         run: uvx ruff check $(git ls-files "*.py")
       - name: Run basedpyright
-        run: uvx basedpyright $(git ls-files "*.py")
+        run: uv run basedpyright $(git ls-files "*.py")
   test:
     name: Run tests
     runs-on: ubuntu-latest
