@@ -49,7 +49,7 @@ class TestPayeeCategorizer:
         """Run a set of txs through categorizer, verify added postings."""
         processed_txs = [
             tx
-            for tx in self.categorizer(None, None, list(self.txs), None)
+            for tx in self.categorizer(list(self.txs), None)
             if isinstance(tx, Transaction)
         ]
         assert len(processed_txs) == 5  # noqa: PLR2004

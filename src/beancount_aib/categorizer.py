@@ -3,19 +3,18 @@
 import re
 
 from beancount.core.data import Directive, Entries, Transaction
-from beancount.ingest.cache import _FileMemo as FileMemo
-from beancount.ingest.importer import ImporterProtocol
 
-from beancount_aib.importer_hook import ImporterHookProtocol
 from beancount_tx_cleanup.helpers import Post
 
 
-class PayeeCategorizer(ImporterHookProtocol):
-    """PayeeCategorizer is pretty much https://github.com/bratekarate/beancount-categorizer.
+class PayeeCategorizer:
+    """PayeeCategorizer was initially borrowed from https://github.com/bratekarate/beancount-categorizer.
 
     I've cleaned it up, modified a bit, sprinkled with type annotations, and
     added tests. I didn't want to have an unreleased code dependency.
-    Thanks bratekarate! :)
+    Thanks bratekarate!
+
+    And then, as it happens, it started to mutate over time :D
     """
 
     def __init__(self, categories: dict[str, list[str]]):  # noqa: D107
@@ -26,12 +25,10 @@ class PayeeCategorizer(ImporterHookProtocol):
 
     def __call__(  # noqa: D102
         self,
-        _importer: ImporterProtocol | None,
-        _file: FileMemo | None,
-        imported_entries: Entries,
-        _existing_entries: Entries | None,
+        extracted_entries: Entries,
+        _existing_entries: Entries | None = None,
     ) -> Entries:
-        return [self._process(entry) for entry in imported_entries]
+        return [self._process(entry) for entry in extracted_entries]
 
     def _process(self, entry: Directive) -> Directive:
         if type(entry) is Transaction and len(entry.postings) == 1:
