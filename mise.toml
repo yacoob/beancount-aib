@@ -1,0 +1,10 @@
+[tools]
+pre-commit = "latest"
+uv = "latest"
+
+[env]
+DEVPOD = "true"
+DEVPOD_NVIM_ASTROCOMMUNITY = "python-ruff"
+
+[hooks]
+enter = ["mise i -q", "uv sync -q"]
