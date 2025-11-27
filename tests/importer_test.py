@@ -1,9 +1,7 @@
 """Tests for the importer itself."""
 
 import datetime
-import tempfile
 from io import StringIO
-from pathlib import Path
 from typing import ClassVar
 
 import pytest
@@ -36,7 +34,7 @@ def input_file(filecontents):
 @pytest.fixture
 def input_filepath(filecontents, tmp_path, request):
     """Provide the filecontents mark as a temporary file path for beangulp importers."""
-    test_file = tmp_path / f"{request.node.name}.csv"
+    test_file = tmp_path / f'{request.node.name}.csv'
     test_file.write_text(filecontents, encoding='UTF-8')
     return str(test_file)
 
@@ -105,7 +103,7 @@ class TestImporter:
     account_map: ClassVar[dict[str, str]] = {'111': 'Assets:AIB:Secret'}
     importer = Importer(account_map)
 
-    def T(
+    def T(  # noqa: PLR0913
         self,
         n: int,
         p: str,
@@ -141,12 +139,22 @@ class TestImporter:
             meta={'filename': filename, 'lineno': n},
         )
 
-    @pytest.mark.filecontents("""
-    absolutely: not a csv file
-    more: 42
-    """)
+    @pytest.mark.filecontents('header\n' + 'x' * 200000)
     def test_not_a_csv_file(self, input_filepath):
         """Importer should not be able to parse a non-CSV file."""
+        assert not self.importer.identify(input_filepath)
+        assert self.importer.date(input_filepath) is None
+        assert (
+            self.importer.account(input_filepath)
+            == self.importer.default_account
+        )
+        assert self.importer.extract(input_filepath, []) == []
+
+    @pytest.mark.filecontents("""
+    Posted Account, Posted Transactions Date, Description1, Description2, Description3, Debit Amount, Credit Amount,Balance,Posted Currency,Transaction Type,Local Currency Amount,Local Currency
+    """)
+    def test_empty_csv_file(self, input_filepath):
+        """Importer should not be able to handle an empty CSV file."""
         assert not self.importer.identify(input_filepath)
         assert self.importer.date(input_filepath) is None
         assert (
@@ -167,7 +175,12 @@ class TestImporter:
         assert self.importer.date(input_filepath) == datetime.date(2063, 1, 3)
         assert self.importer.account(input_filepath) == self.account_map['111']
         assert self.importer.extract(input_filepath, []) == [
-            self.T(1, 'Nuts and Bolts Limited', '-23.50', filepath=input_filepath),
+            self.T(
+                1,
+                'Nuts and Bolts Limited',
+                '-23.50',
+                filepath=input_filepath,
+            ),
             self.T(
                 2,
                 'Croissants',
@@ -176,7 +189,12 @@ class TestImporter:
                 {'point-of-sale'},
                 filepath=input_filepath,
             ),
-            self.T(3, 'twenty feet of pure white snow', '200.00', filepath=input_filepath),
+            self.T(
+                3,
+                'twenty feet of pure white snow',
+                '200.00',
+                filepath=input_filepath,
+            ),
             self.B(4, '316.50', filepath=input_filepath),
         ]
 
@@ -201,7 +219,12 @@ class TestImporter:
                 filepath=input_filepath,
             ),
             self.T(2, 'FreeNow', '-16.80', filepath=input_filepath),
-            self.T(3, 'twenty feet of pure white snow', '1310.00', filepath=input_filepath),
+            self.T(
+                3,
+                'twenty feet of pure white snow',
+                '1310.00',
+                filepath=input_filepath,
+            ),
         ]
 
     @pytest.mark.filecontents("""
@@ -338,4 +361,44 @@ class TestImporterCutoff:
         txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(input_filepath, existing_entries)  # fmt: skip
         assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH - 1
         assert txs[0].date == datetime.date(2063, 1, 2)
+        assert txs[-1].date == datetime.date(2063, 1, 6)
+
+    def test_cutoff_with_flagged_account_txs(
+        self,
+        input_filepath,
+        existing_entries,
+    ):
+        """Test that pending transactions (flag='!') don't affect cutoff date calculation.
+
+        When all existing transactions for the target account are marked as pending,
+        the importer should ignore them when determining how far back to import,
+        resulting in a full import with no cutoff applied.
+        """
+        # Flag all account transactions so the loop has to skip them and find no latest_date
+        existing_entries[0] = Tx(datetime.date(2063, 1, 1), 'nine golden rings', flag='!', postings=[Post(self.ACCOUNT_NAME, amount='-9.99')])  # fmt: skip
+        existing_entries[1] = Tx(datetime.date(2063, 1, 2), 'ring wraith costume', flag='!', postings=[Post(self.ACCOUNT_NAME, amount='-200.00')])  # fmt: skip
+        existing_entries[3] = Tx(datetime.date(2063, 1, 3), 'stick horse', flag='!', postings=[Post(self.ACCOUNT_NAME, amount='-300.00')])  # fmt: skip
+        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(input_filepath, existing_entries)  # fmt: skip
+        # With no valid existing transactions, no cutoff occurs - should get full import
+        assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH
+        assert txs[0].date == datetime.date(2063, 1, 1)
+        assert txs[-1].date == datetime.date(2063, 1, 6)
+
+    def test_cutoff_with_non_matching_account_txs(
+        self,
+        input_filepath,
+        existing_entries,
+    ):
+        """Test that cutoff only considers transactions for the target account.
+
+        When existing transactions belong to different accounts, the importer should
+        ignore them when calculating the cutoff date and only use transactions that
+        match the account being imported.
+        """
+        # Replace the LATEST account transaction with a non-matching one, forcing iteration
+        existing_entries[3] = Tx(datetime.date(2063, 1, 3), 'different account tx', flag='*', postings=[Post('Assets:Other:Account', amount='-300.00')])  # fmt: skip
+        txs = Importer(self.ACCOUNT_MAP, Extractors(), cutoff_days=1).extract(input_filepath, existing_entries)  # fmt: skip
+        # Should find the next valid transaction (day 2) and use that for cutoff
+        assert len(txs) == self.FULL_IMPORT_DIRECTIVE_LENGTH
+        assert txs[0].date == datetime.date(2063, 1, 1)
         assert txs[-1].date == datetime.date(2063, 1, 6)

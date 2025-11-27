@@ -2,7 +2,6 @@
 
 import csv
 import datetime
-import mimetypes
 from copy import deepcopy
 from functools import cache
 from pathlib import Path
@@ -89,10 +88,6 @@ class Importer(BeangulpImporter):
 
     def identify(self, filepath: str) -> bool:
         """Verify whether Importer can handle given file."""
-        # does this file contain an actual csv content?
-        mime_type, _ = mimetypes.guess_type(filepath)
-        if mime_type != 'text/csv':
-            return False
         # each row specifies account in the first field; check if it's the same across the whole file
         try:
             rows = csv2rowlist(filepath)
